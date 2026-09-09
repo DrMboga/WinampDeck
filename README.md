@@ -23,8 +23,8 @@ A C++20 / CMake controller app orchestrates two long-lived engines — **go-libr
 
 See:
 - [CONTEXT.md](CONTEXT.md) — the project's domain glossary (Deck, Source, Engine, Eject, Station, ...)
-- [docs/adr/](docs/adr/) — architecture decision records
-- [.tracker/controller-v1/spec.md](.tracker/controller-v1/spec.md) — the current spec
+- [docs/architecture.md](docs/architecture.md) — how the software works, in plain language
+- [docs/delivery-plan.md](docs/delivery-plan.md) — the phased build-out plan
 
 ## Status
 

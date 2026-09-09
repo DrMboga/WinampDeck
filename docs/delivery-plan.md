@@ -1,0 +1,73 @@
+# Delivery Plan
+
+This breaks the [spec](../.tracker/controller-v1/spec.md) into an order to actually build it in. The guiding idea: the architecture was deliberately shaped so the hard part — the button/Source/display decision-making — can be built and fully tested before any Raspberry Pi, Spotify account, or soldering is involved. Hardware gets bolted on afterward, one piece at a time, onto logic that's already proven correct.
+
+Each phase lists what it delivers and how to know it's actually done (exit criteria), not just "code written."
+
+## Phase 0 — Project scaffolding
+
+Set up the CMake project (C++20), pull in the dependencies (Asio, websocketpp, cpp-httplib, nlohmann/json, pigpio), and get a CI job running the test suite on every push.
+
+**Exit criteria:** the project builds clean, and a trivial test runs in CI.
+
+## Phase 1 — Core orchestration, no hardware at all
+
+Implement `EngineClient`, `RadioClient`, and `HardwareIO` as interfaces with simple in-memory fakes standing in for go-librespot, mpv, and pigpio. Then build `PlayerController` against those interfaces: the Source state machine, Eject's short/long-press split, Play/Pause/Next/Previous dispatch, Shuffle/Repeat behaving differently for Spotify vs. Radio, Station List navigation, and the auto-switch logic (including the device-ID check that stops it firing for Spotify activity elsewhere on the account).
+
+This is the biggest phase in terms of decisions made real, and the one the spec's whole "Testing Decisions" section is about.
+
+**Exit criteria:** every scenario in the spec's button map and user stories is covered by a passing test, with zero real hardware, sockets, or subprocesses involved.
+
+## Phases 2–3 — Wire in the real engines (can happen in parallel, and don't need the Pi yet)
+
+**Phase 2 — go-librespot.** Run it (a dev machine or WSL is fine to start — it's a normal Linux binary), and implement the real `EngineClient` against its REST + WebSocket API. Smoke-test manually: control it from a temporary CLI standing in for the panel, confirm metadata/event flow, and confirm the auto-switch device-ID filtering actually works when you press Play on a real phone.
+
+**Phase 3 — mpv.** Spawn it, implement the real `RadioClient` against its JSON IPC socket. This is also the first place to sanity-check the `aid no`/`aid auto` mute mechanism from [ADR 0004](adr/0004-audio-device-sharing.md), even before real hardware is involved — mpv's device-release behavior on any Linux box should already show the difference between plain `pause` and deselecting the audio track.
+
+**Exit criteria (both):** Spotify and Radio each play/pause/skip correctly through the *same* `PlayerController` already proven in Phase 1 — only the adapter underneath changed.
+
+## Phase 4 — The real HiFiBerry Digi+ Pro, and both engines sharing it
+
+Wire up the actual HAT, configure the `dmix` device, and run go-librespot and mpv side by side, switching Source back and forth repeatedly and rapidly. This is where [ADR 0004](adr/0004-audio-device-sharing.md)'s open questions — which were based on reading source and docs, not a real board — actually get answered.
+
+**Exit criteria:** switching Source many times in a row never produces a device-busy error or an audio glitch.
+
+## Phase 5 — Buttons and LEDs (can happen in parallel with 2–4)
+
+Wire the MCP23017, and implement the real `HardwareIO` for buttons/LEDs: pigpio for I²C register access, plus the interrupt-driven read off the MCP23017's INT line instead of polling.
+
+**Exit criteria:** every physical button and LED does exactly what the Phase 1 tests already say it should — no new behavior is invented here, only real switches replacing fake ones.
+
+## Phase 6 — TFT
+
+Bring up SPI communication with the ST7735 using the developer's own proven init/addressing sequence, build the 5×7 Latin/Cyrillic bitmap font renderer, then implement the Now Playing view (skin, progress, decorative spectrum) and the Station List view (scrollable list with logos).
+
+**Exit criteria:** the TFT reflects `PlayerController` state changes correctly and promptly, for both Sources and both Station List states.
+
+## Phase 7 — LCD
+
+Wire the FC-113/PCF8574 backpack, implement the scrolling first-row text ("Artist — Track" / "Station — Stream Title").
+
+**Exit criteria:** the LCD shows the right text, scrolling at the configured speed.
+
+## Phase 8 — Config file and stations.csv
+
+Load the plain config file (brightness, LCD scroll speed) and `stations.csv` (name, URL, logo) at startup, and wire them into the relevant adapters/views.
+
+**Exit criteria:** hand-editing either file and restarting the controller changes behavior exactly as expected — no other way to change either exists, by design.
+
+## Phase 9 — Full integration on the assembled panel
+
+Everything above, running together on the real Pi, HAT, and panel — inside the enclosure once it's built. Soak-test it: leave it running for an extended period, switching Sources, connecting different Spotify accounts, browsing stations, to surface anything that only shows up over time (event-stream reconnects, memory growth, and the like).
+
+**Exit criteria:** the Deck runs correctly, unattended, for a multi-day soak.
+
+## Phase 10 — Packaging
+
+systemd unit files for the controller, go-librespot, and mpv, so the Deck comes up fully working on boot with no manual steps or SSH session required.
+
+**Exit criteria:** cold power-on reaches a working Deck, every time.
+
+## Deliberately not on this plan
+
+The plywood enclosure build is physical work tracked separately from software delivery. The real spectrum analyzer (PipeWire-based), the web/OAuth stack, SQLite, and play history are out of scope per the spec — not deferred to a later phase, just not part of this plan at all.
