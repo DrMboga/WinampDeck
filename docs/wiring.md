@@ -1,8 +1,8 @@
 # Hardware Wiring
 
-This is the Raspberry Pi 4 40-pin header allocation for all of WinampDeck's hardware: the Digi Pro HAT (a Chinese clone, sold as "AOIDE Digi Pro"/"DollaTek HiFi Digi Pro"), the ST7735 TFT, the MCP23017 button/LED expander, and the HD44780 LCD's FC-113 (PCF8574) backpack.
+This is the 40-pin header allocation for all of WinampDeck's hardware, targeting the **Raspberry Pi 3 Model B** ([ADR 0005](adr/0005-target-board-pi-3b.md)): the Digi Pro HAT (a Chinese clone, sold as "AOIDE Digi Pro"/"DollaTek HiFi Digi Pro"), the ST7735 TFT, the MCP23017 button/LED expander, and the HD44780 LCD's FC-113 (PCF8574) backpack. The 40-pin layout itself is identical across the whole 2B/3B/3B+/4B family, so none of this changed when the target board did.
 
-Everything here is built from primary sources — the Pi 4's own datasheet, the actual `hifiberry-digi-pro` device-tree overlay source, Microchip's MCP23017 datasheet — kept in `.tracker/controller-v1/research/` for anyone who wants to check the sourcing. Two things could **not** be verified from any authoritative source and need a real-hardware check before you commit to soldering; they're called out plainly in [Verify before you solder](#verify-before-you-solder) rather than guessed at.
+Everything here is built from primary sources — Raspberry Pi's own GPIO header documentation, the actual `hifiberry-digi-pro` device-tree overlay source, Microchip's MCP23017 datasheet — kept in `.tracker/controller-v1/research/` for anyone who wants to check the sourcing. Two things could **not** be verified from any authoritative source and need a real-hardware check before you commit to soldering; they're called out plainly in [Verify before you solder](#verify-before-you-solder) rather than guessed at.
 
 ## Pins the HAT already claims — do not reuse these
 
@@ -78,11 +78,5 @@ Two things below have no authoritative source and need a real check on your actu
 
 1. **The clone HAT's exact pin usage is inferred, not confirmed.** Everything in the first table comes from the *genuine* HiFiBerry Digi+ Pro's overlay source, on the reasoning that this clone uses the same WM8804 chip and is driven by the same `hifiberry-digi-pro` overlay (a Raspberry Pi forum thread on this exact card supports that). But nobody has published this clone's own schematic, so it's not a certainty — and the IR receiver's GPIO26 is a weaker version of the same problem: it's a plausible convention pulled from the same product family, not a verified fact. **Before wiring anything to GPIO26, or trusting the HAT's pin list, run `raspi-gpio funcs` / `i2cdetect -y 1` with the HAT connected and nothing else attached**, and confirm the WM8804 shows up at `0x3B` and nothing unexpected is toggling on GPIO26.
 2. **LCD backpack voltage.** The FC-113 is a generic, undocumented module — some are built around the PCF8574 (default address `0x27`), others the PCF8574A (`0x3F`); check which you actually have with `i2cdetect`. More importantly: **it must run its I2C side at 3.3V, not 5V, because it shares a bus with the MCP23017 and the WM8804, both fixed at the Pi's native 3.3V logic level** — mixing bus voltages on one shared I2C bus without a level shifter risks damaging the Pi's GPIO. Running the backpack at 3.3V may dim the LCD's contrast (HD44780 panels are nominally rated for 5V), which is a cosmetic tradeoff, not a safety one — confirm the display is legible at 3.3V before finalizing, rather than reaching for 5V to fix contrast.
-3. **Pi 4B board revision.** The HAT's own listing warns it doesn't support "Raspberry Pi 4B 1.5" — and this one is real, not boilerplate: Raspberry Pi swapped the PMIC (MXL7704 → DA9090) on Rev 1.5 boards (in production since late 2021), which changed boot-time voltage-rail sequencing enough that the original HiFiBerry Digi+ Pro could fail to be detected at all; HiFiBerry had to ship revised hardware to fix it, and this clone's actual hardware lineage relative to that fix is undocumented anywhere. The Pi being used here was ordered from berryBase on 2024-12-08 — well within the Rev 1.5+ production window, so don't assume it predates the issue. **Before wiring the HAT at all**, boot the Pi on its own and check:
 
-   ```bash
-   cat /proc/cpuinfo
-   cat /sys/firmware/devicetree/base/model
-   ```
-
-   The `Revision` line (or the model string) will say if this is Rev 1.5. If it is, there's no way to confirm from documentation alone whether this specific clone still has the problem — worth asking the seller directly before assuming it'll work.
+(A Raspberry Pi 4B board-revision compatibility issue was found and ruled the Pi 4 out entirely — see [ADR 0005](adr/0005-target-board-pi-3b.md) — which is why this doc no longer targets it.)

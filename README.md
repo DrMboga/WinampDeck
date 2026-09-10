@@ -1,6 +1,6 @@
 # WinampDeck
 
-A hardware media player built into a 3D-printed Winamp-skin front panel. It plays Spotify Connect and internet radio through a Raspberry Pi 4, output entirely in digital form (optical S/PDIF) into an external amplifier, and is operated only from the panel's real, removable buttons — no phone app, no web UI.
+A hardware media player built into a 3D-printed Winamp-skin front panel. It plays Spotify Connect and internet radio through a Raspberry Pi 3 Model B, output entirely in digital form (optical S/PDIF) into an external amplifier, and is operated only from the panel's real, removable buttons — no phone app, no web UI.
 
 ![Front panel](WinampPanelFront.jpg)
 ![Back panel](WinampPanelBack.jpg)
@@ -9,12 +9,12 @@ The panel has two display cutouts (a 1.77" TFT and a single-row-visible LCD) and
 
 ## Hardware
 
-- Raspberry Pi 4 (1 GB RAM)
-- HiFiBerry Digi+ Pro HAT (digital S/PDIF output)
+- Raspberry Pi 3 Model B (1 GB RAM)
+- HiFiBerry Digi+ Pro-compatible HAT (digital S/PDIF output)
 - 1.77" SPI TFT, 128×160, ST7735(R)
 - HD44780 1602 LCD (first row visible only) via an FC-113/PCF8574 I²C backpack
 - MCP23017 I²C GPIO expander (buttons and LEDs)
-- Official Raspberry Pi USB-C Power Supply (27 W)
+- 5V/2.5A micro-USB power supply
 - Enclosure: plywood, all electronics inside, front panel attached
 
 ## Software
