@@ -1,6 +1,6 @@
 # Hardware Wiring
 
-This is the 40-pin header allocation for all of WinampDeck's hardware, targeting the **Raspberry Pi 3 Model B** ([ADR 0005](adr/0005-target-board-pi-3b.md)): the Digi Pro HAT (a Chinese clone, sold as "AOIDE Digi Pro"/"DollaTek HiFi Digi Pro"), the ST7735 TFT, the MCP23017 button/LED expander, and the HD44780 LCD's FC-113 (PCF8574) backpack. The 40-pin layout itself is identical across the whole 2B/3B/3B+/4B family, so none of this changed when the target board did.
+This is the 40-pin header allocation for all of WinampDeck's hardware, targeting the **Raspberry Pi 3 Model B** ([ADR 0005](adr/0005-target-board-pi-3b.md)): the Digi Pro HAT (a Chinese clone, sold as "AOIDE Digi Pro"/"DollaTek HiFi Digi Pro"), the ST7735 TFT, the MCP23017 button/LED expander, and the HD44780 LCD's FC-113 (PCF8574) backpack, behind a TXS0108E logic level converter. The 40-pin layout itself is identical across the whole 2B/3B/3B+/4B family, so none of this changed when the target board did.
 
 Everything here is built from primary sources — Raspberry Pi's own GPIO header documentation, the actual `hifiberry-digi-pro` device-tree overlay source, Microchip's MCP23017 datasheet, and the manufacturer's own manuals for the specific TFT, LCD/I2C-adapter, and MCP23017 (CJMCU-2317) breakout boards actually being used, purchased from AZ-Delivery (kept locally in `docs/`, not committed — see below) — kept in `.tracker/controller-v1/research/` for anyone who wants to check the sourcing. One thing could **not** be verified from any authoritative source and needs a real-hardware check before you commit to soldering; it's called out plainly in [Verify before you solder](#verify-before-you-solder) rather than guessed at.
 
@@ -27,7 +27,7 @@ Two more are reserved on every Pi HAT, regardless of which one:
 | 27 | GPIO0 | ID_SD — HAT ID EEPROM only, never general-purpose |
 | 28 | GPIO1 | ID_SC — HAT ID EEPROM only, never general-purpose |
 
-Note the I2C1 bus (pins 3/5) is *shared*, not exclusive — our own I2C devices (MCP23017, LCD backpack) go on this same bus, at their own addresses, alongside the WM8804. That's normal I2C; it's not a conflict.
+Note the I2C1 bus (pins 3/5) is *shared*, not exclusive — the MCP23017 goes directly on this same bus, at its own address, alongside the WM8804. That's normal I2C; it's not a conflict. The LCD's I2C adapter also lives logically on this bus, but not electrically directly on it — see [LCD backpack wiring](#lcd-backpack-wiring) below; it needs a level shifter in between.
 
 One more pin to steer clear of, for a different reason: this specific clone board has a **built-in IR receiver** the genuine HiFiBerry doesn't have. No schematic exists for this exact product, but the closest thing found — a build script from the same AOIDE product family — wires its IR receiver to **GPIO26** (physical pin 37). Treat that as a caution, not a confirmed fact (see below), and avoid assigning anything of ours there.
 
@@ -35,9 +35,10 @@ One more pin to steer clear of, for a different reason: this specific clone boar
 
 | Physical pin | BCM GPIO | Signal | Goes to |
 |---|---|---|---|
-| 1 | — (3.3V) | Power | MCP23017 VDD, LCD backpack VCC |
+| 1 | — (3.3V) | Power | MCP23017 VDD; level shifter VA + OE (OE via resistor) |
+| 2 | — (5V) | Power | Level shifter VB (its high-voltage side, feeding the LCD adapter) |
 | 4 | — (5V) | Power | TFT VCC — the board has its own onboard regulator down to 3.3V; AZ-Delivery's own Raspberry Pi wiring diagram for this exact board feeds it 5V here |
-| 6 / 9 / 14 / 20 / 25 / 30 / 34 / 39 | — (GND) | Ground | Common ground, all peripherals |
+| 6 / 9 / 14 / 20 / 25 / 30 / 34 / 39 | — (GND) | Ground | Common ground, all peripherals (including the level shifter) |
 | 16 | GPIO23 | TFT RS / DC | ST7735 — command/data select |
 | 18 | GPIO24 | TFT RES | ST7735 — hard reset |
 | 19 | GPIO10 (MOSI) | TFT SDA (SPI data) | ST7735 — SPI0 |
@@ -77,7 +78,29 @@ This specific AZ-Delivery board has an onboard 3.3V regulator, so per their own 
 
 ## LCD backpack wiring
 
-**GND/VCC/SDA/SCL** are the only four pins the I2C adapter exposes — SDA/SCL go on the shared I2C1 bus above. AZ-Delivery's datasheet states this adapter's operating range is 3.3V–5V, so running it at 3.3V (required here, since it shares a bus with the MCP23017 and the WM8804, both fixed at the Pi's native 3.3V logic level) is officially within spec, not a workaround. Note the adapter's backlight is a physical on/off jumper and its contrast a physical potentiometer — neither is software-controllable, so the config file's brightness setting only ever applies to the TFT, not this LCD.
+**Correction from an earlier version of this doc**: the LCD's I2C adapter is **not** 3.3V-capable — AZ-Delivery's own manual states plainly that "the I2C adapter only works in the 5V range," and their tested Raspberry Pi wiring puts a **TXS0108E logic level converter** between the Pi and the adapter. Their manual's reasoning applies here just as much as it does to their own reference build: the adapter's SDA/SCL pull-ups are referenced to 5V, and driving them from the Pi's 3.3V-only GPIO directly is exactly the unsafe combination they call out — it's not a coincidence we should route around, it's the vendor telling us how this specific part actually works.
+
+The fix doesn't cost any extra Pi pins, since the level shifter's low-voltage side just taps the same GPIO2/GPIO3 pins the MCP23017 is already on. Wiring, per AZ-Delivery's own tested diagram:
+
+| I2C adapter pin | Level shifter pin |
+|---|---|
+| SCL | B1 |
+| SDA | B2 |
+| VCC | VB |
+| GND | GND |
+
+| Level shifter pin | Raspberry Pi pin |
+|---|---|
+| VA | 3.3V (pin 1) |
+| A1 | GPIO3 / SCL1 (pin 5) |
+| A2 | GPIO2 / SDA1 (pin 3) |
+| OE | 3.3V via resistor (pin 1) |
+| GND | GND (pin 20) |
+| VB | 5V (pin 2) |
+
+The MCP23017 stays wired directly to GPIO2/GPIO3 as before, in parallel with the level shifter's low-voltage side — it's the LCD adapter specifically that sits behind the shifter, not the whole bus.
+
+Note the adapter's backlight is a physical on/off jumper and its contrast a physical potentiometer — neither is software-controllable, so the config file's brightness setting only ever applies to the TFT, not this LCD.
 
 ## Verify before you solder
 
