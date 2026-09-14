@@ -65,16 +65,30 @@ Three devices, three addresses, no collisions:
 
 The specific board is a **CJMCU-2317** breakout, per AZ-Delivery's own manual — its silkscreen doubles up pin names for the SPI variant of this chip family (`SDA/SI`, `SCL/SCK`), and it exposes only **one combined interrupt pin** (labelled `ITB/ITA`) rather than separate INTA/INTB — convenient, since only one interrupt line is needed here anyway.
 
-- **VDD** → 3.3V, **VSS (GND)** → GND.
-- **A0, A1, A2** → GND (gives address `0x20`).
-- **RESET** → 3.3V through a **10kΩ pull-up resistor**, not a direct tie — this is AZ-Delivery's own documented reference wiring for this board, safer than hard-wiring it.
-- **ITB/ITA** (the combined interrupt pin) → GPIO27 (pin 13).
-- **GPA0–GPA7** (labelled `B0/A0`–`B7/A7` on this board's silkscreen — confusingly, "A0–A7" here means GPIO port A bits 0–7, unrelated to the I2C address pins of the same name) → the 8 buttons (Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat), each with `GPINTEN` enabled so a press raises the interrupt pin.
-- **GPB0–GPB1** (labelled `B1/A1`, `B2/A2` etc. — port B) → the 2 LEDs (Shuffle, Repeat). Add a current-limiting resistor per LED as usual.
+| MCP23017 pin | Connects to | Note |
+|---|---|---|
+| VDD | 3.3V | |
+| VSS | GND | |
+| A0, A1, A2 | GND | gives address `0x20` |
+| RESET | 3.3V, through a **10kΩ pull-up resistor** | not a direct tie — AZ-Delivery's own documented reference wiring, safer than hard-wiring it |
+| ITB/ITA (combined interrupt pin) | GPIO27 (pin 13) | |
+| GPA0–GPA7 (silkscreen `B0/A0`–`B7/A7`) | The 8 buttons: Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat | each with `GPINTEN` enabled so a press raises the interrupt pin. Note the silkscreen's "A0–A7" here means GPIO port A bits 0–7 — unrelated to the I2C address pins of the same name |
+| GPB0–GPB1 (silkscreen `B1/A1`, `B2/A2`) | The 2 LEDs: Shuffle, Repeat | add a current-limiting resistor per LED as usual |
 
 ## ST7735 TFT wiring
 
-This specific AZ-Delivery board has an onboard 3.3V regulator, so per their own tested Raspberry Pi wiring diagram: **VCC** → 5V, **LEDA** → GPIO12 (PWM, for brightness — direct to 3.3V also works if dimming isn't needed, but never to 5V, which can damage the screen), **GND** → GND, **SCK** → GPIO11, **SDA** → GPIO10, **CS** → GPIO8, **RES** → GPIO24, **RS** (labelled "REG. SEL." in their manual) → GPIO23. All the logic pins are 3.3V-only (the display isn't 5V-tolerant) — fine directly off a Pi's GPIO, no level shifter needed, since the Pi's logic is already 3.3V (AZ-Delivery's own guide only calls for a level converter on 5V-logic boards like an Arduino Uno).
+This specific AZ-Delivery board has an onboard 3.3V regulator, so per their own tested Raspberry Pi wiring diagram, VCC is fed 5V while every logic pin stays 3.3V — the display itself isn't 5V-tolerant, and AZ-Delivery's guide only calls for a level converter on 5V-logic boards like an Arduino Uno. Since the Pi's GPIO is already native 3.3V, none is needed here.
+
+| TFT pin | Connects to | Note |
+|---|---|---|
+| VCC | 5V (pin 4) | onboard regulator steps this down to 3.3V for the chip |
+| GND | GND | |
+| SCK | GPIO11 / SCLK (pin 23) | SPI0 clock |
+| SDA | GPIO10 / MOSI (pin 19) | SPI0 data |
+| CS | GPIO8 / CE0 (pin 24) | SPI0 chip select |
+| RES | GPIO24 (pin 18) | hard reset |
+| RS (labelled "REG. SEL." in AZ-Delivery's manual) | GPIO23 (pin 16) | command/data select |
+| LEDA | GPIO12 / PWM0 (pin 32) | backlight — PWM for the config file's brightness setting; a direct 3.3V tie also works if dimming isn't needed, but never 5V — that can damage the screen |
 
 ## LCD backpack wiring
 
