@@ -2,7 +2,7 @@
 
 This is the 40-pin header allocation for all of WinampDeck's hardware, targeting the **Raspberry Pi 3 Model B** ([ADR 0005](adr/0005-target-board-pi-3b.md)): the Digi Pro HAT (a Chinese clone, sold as "AOIDE Digi Pro"/"DollaTek HiFi Digi Pro"), the ST7735 TFT, the MCP23017 button/LED expander, and the HD44780 LCD's FC-113 (PCF8574) backpack, behind a TXS0108E logic level converter. The 40-pin layout itself is identical across the whole 2B/3B/3B+/4B family, so none of this changed when the target board did.
 
-Everything here is built from primary sources — Raspberry Pi's own GPIO header documentation, the actual `hifiberry-digi-pro` device-tree overlay source, Microchip's MCP23017 datasheet, and the manufacturer's own manuals for the specific TFT, LCD/I2C-adapter, and MCP23017 (CJMCU-2317) breakout boards actually being used, purchased from AZ-Delivery (kept locally in `docs/`, not committed — see below) — kept in `.tracker/controller-v1/research/` for anyone who wants to check the sourcing. One thing could **not** be verified from any authoritative source and needs a real-hardware check before you commit to soldering; it's called out plainly in [Verify before you solder](#verify-before-you-solder) rather than guessed at.
+Everything here is built from primary sources — Raspberry Pi's own GPIO header documentation, the actual `hifiberry-digi-pro` device-tree overlay source, Microchip's MCP23017 datasheet, and the manufacturer's own manuals for the specific TFT, LCD/I2C-adapter, and MCP23017 (CJMCU-2317) breakout boards actually being used, purchased from AZ-Delivery (kept locally in `docs/`, not committed — see below) — kept in `.tracker/controller-v1/research/` for anyone who wants to check the sourcing. One thing could **not** be verified from any authoritative source and needed a real-hardware check before committing to soldering; it's called out, along with the check's result, in [Verify before you solder](#verify-before-you-solder).
 
 The three AZ-Delivery product manuals this doc draws on aren't tracked in git (they're large vendor PDFs, not something the repo needs to carry) — if you're picking this up fresh, they cover the 1.77" TFT SPI screen, the 16x02 LCD + I2C adapter, and the MCP23017 I2C port expander, all available from AZ-Delivery's own site/product pages.
 
@@ -35,7 +35,7 @@ One more pin to steer clear of, for a different reason: this specific clone boar
 
 | Physical pin | BCM GPIO | Signal | Goes to |
 |---|---|---|---|
-| 1 | — (3.3V) | Power | MCP23017 VDD; level shifter VA + OE (OE via resistor) |
+| 1 | — (3.3V) | Power | MCP23017 VDD; level shifter VA + OE (OE via 10kΩ pull-up resistor — see [LCD backpack wiring](#lcd-backpack-wiring)) |
 | 2 | — (5V) | Power | Level shifter VB (its high-voltage side, feeding the LCD adapter) |
 | 4 | — (5V) | Power | TFT VCC — the board has its own onboard regulator down to 3.3V; AZ-Delivery's own Raspberry Pi wiring diagram for this exact board feeds it 5V here |
 | 6 / 9 / 14 / 20 / 25 / 30 / 34 / 39 | — (GND) | Ground | Common ground, all peripherals (including the level shifter) |
@@ -61,6 +61,8 @@ Three devices, three addresses, no collisions:
 | MCP23017 | `0x20` (all three address pins A0/A1/A2 tied to GND) |
 | LCD I2C adapter | `0x27` (confirmed — AZ-Delivery's own manual documents this adapter as PCF8574-based, factory-set to `0x27` with all address pads open; the A0/A1/A2 solder pads on the adapter can move it anywhere from `0x20`–`0x27` if that address is ever needed for something else) |
 
+**Software prerequisite, confirmed on real hardware (2026-09-22):** the I2C1 controller itself comes up automatically with the HAT overlay (needed for the WM8804), but `/dev/i2c-1` for userspace tools/pigpio does not exist until I2C is explicitly enabled. In `/boot/firmware/config.txt`, uncomment `dtparam=i2c_arm=on`, and make sure the `i2c-dev` kernel module is loaded (`echo i2c-dev | sudo tee -a /etc/modules` to persist it — on this image it wasn't auto-loaded by the `dtparam` alone). Confirmed working: `i2cdetect -y 1` shows the WM8804 at `0x3B` (as `UU`, meaning a kernel driver already owns that address — expected, not an error).
+
 ## MCP23017 wiring
 
 The specific board is a **CJMCU-2317** breakout, per AZ-Delivery's own manual — its silkscreen doubles up pin names for the SPI variant of this chip family (`SDA/SI`, `SCL/SCK`), and it exposes only **one combined interrupt pin** (labelled `ITB/ITA`) rather than separate INTA/INTB — convenient, since only one interrupt line is needed here anyway.
@@ -69,11 +71,14 @@ The specific board is a **CJMCU-2317** breakout, per AZ-Delivery's own manual �
 |---|---|---|
 | VDD | 3.3V | |
 | VSS | GND | |
+| SDA/SI | GPIO2 / SDA1 (pin 3) | I2C1 data — same shared bus as the WM8804, in parallel with the level shifter's low-voltage side (see [LCD backpack wiring](#lcd-backpack-wiring)) |
+| SCL/SCK | GPIO3 / SCL1 (pin 5) | I2C1 clock — same shared bus |
 | A0, A1, A2 | GND | gives address `0x20` |
 | RESET | 3.3V, through a **10kΩ pull-up resistor** | not a direct tie — AZ-Delivery's own documented reference wiring, safer than hard-wiring it |
 | ITB/ITA (combined interrupt pin) | GPIO27 (pin 13) | |
 | GPA0–GPA7 (silkscreen `B0/A0`–`B7/A7`) | The 8 buttons: Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat | each with `GPINTEN` enabled so a press raises the interrupt pin. Note the silkscreen's "A0–A7" here means GPIO port A bits 0–7 — unrelated to the I2C address pins of the same name |
-| GPB0–GPB1 (silkscreen `B1/A1`, `B2/A2`) | The 2 LEDs: Shuffle, Repeat | add a current-limiting resistor per LED as usual |
+| GPB0–GPB1 (silkscreen `B1/A1`, `B2/A2`) | The 2 LEDs: Shuffle, Repeat, each through a **220Ω current-limiting resistor** to the LED anode (cathode to GND) | 220Ω assumes a typical ~2V-Vf indicator LED (red/yellow/green) driven from the MCP23017's 3.3V output, targeting ~6mA — a conservative, not-too-dim value. Not sourced from AZ-Delivery's manual (it doesn't specify LED part/resistor); if your LEDs are blue/white (~3.0–3.2V Vf), drop to ~100Ω for similar brightness, or check the LED's own datasheet if you have one |
+| GPB2–GPB7 | unused | not connected — only 2 of the 8 GPB lines are wired |
 
 ## ST7735 TFT wiring
 
@@ -108,9 +113,12 @@ The fix doesn't cost any extra Pi pins, since the level shifter's low-voltage si
 | VA | 3.3V (pin 1) |
 | A1 | GPIO3 / SCL1 (pin 5) |
 | A2 | GPIO2 / SDA1 (pin 3) |
-| OE | 3.3V via resistor (pin 1) |
+| OE | 3.3V (pin 1), through a **10kΩ pull-up resistor** |
 | GND | GND (pin 20) |
 | VB | 5V (pin 2) |
+| A3–A8, B3–B8 | unused — not connected, only 2 of the TXS0108E's 8 channels are wired |
+
+The 10kΩ on OE isn't from AZ-Delivery's manual (this doc's earlier version left the value out because it wasn't captured from there) — it's TI's own TXS0108E datasheet recommendation: tying OE to VCCA through a resistor rather than hard-wiring it, so the chip's auto-direction-sensing power-up sequence completes before the outputs enable. If you have AZ-Delivery's manual in hand and it specifies a different value, prefer that instead.
 
 The MCP23017 stays wired directly to GPIO2/GPIO3 as before, in parallel with the level shifter's low-voltage side — it's the LCD adapter specifically that sits behind the shifter, not the whole bus.
 
@@ -118,8 +126,10 @@ Note the adapter's backlight is a physical on/off jumper and its contrast a phys
 
 ## Verify before you solder
 
-One thing below has no authoritative source and needs a real check on your actual board — everything else in this document does have one (cited in `.tracker/controller-v1/research/`, or the AZ-Delivery manuals referenced above).
+One thing below had no authoritative source and needed a real check on the actual board — everything else in this document does have one (cited in `.tracker/controller-v1/research/`, or the AZ-Delivery manuals referenced above). That check has since passed, per the result recorded below.
 
 1. **The clone HAT's exact pin usage is inferred, not confirmed.** Everything in the first table comes from the *genuine* HiFiBerry Digi+ Pro's overlay source, on the reasoning that this clone uses the same WM8804 chip and is driven by the same `hifiberry-digi-pro` overlay (a Raspberry Pi forum thread on this exact card supports that). But nobody has published this clone's own schematic, so it's not a certainty — and the IR receiver's GPIO26 is a weaker version of the same problem: it's a plausible convention pulled from the same product family, not a verified fact. **Before wiring anything to GPIO26, or trusting the HAT's pin list, run `raspi-gpio funcs` / `i2cdetect -y 1` with the HAT connected and nothing else attached**, and confirm the WM8804 shows up at `0x3B` and nothing unexpected is toggling on GPIO26.
+
+   **Checked on real hardware (2026-09-22):** passed. `i2cdetect -y 1` shows `UU` at `0x3B` (a kernel driver already owns that address — the `snd_soc_wm8804_i2c` driver, confirmed bound and working via a successful `speaker-test`), confirming the WM8804 is exactly where the genuine HiFiBerry's overlay says it should be. `pinctrl` (the current replacement for `raspi-gpio` on this OS image) shows GPIO26 as plain `input`, `hi`, with no alt-function claimed by any overlay — nothing is actively driving or claiming it. This doesn't rule out the IR receiver being physically present (an idle receiver output also idles high), but confirms nothing software-side is fighting you there. Safe to proceed with wiring the MCP23017/TFT/LCD per the tables above.
 
 (A Raspberry Pi 4B board-revision compatibility issue was found and ruled the Pi 4 out entirely — see [ADR 0005](adr/0005-target-board-pi-3b.md) — which is why this doc no longer targets it.)
