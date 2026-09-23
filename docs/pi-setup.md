@@ -119,7 +119,7 @@ ctl.dmixer {
 
 **Goal** (per the [delivery plan](delivery-plan.md)): get go-librespot running for real, control it like the panel eventually will, confirm metadata/event flow, and confirm the auto-switch device-ID filtering actually works from a real phone.
 
-### 5.1 Install go-librespot — ☐ to do
+### 5.1 Install go-librespot — ✅ done 2026-09-23
 
 Pick **one** of the two options below, not both — the prebuilt binary is simpler and sufficient for this smoke test.
 
@@ -145,7 +145,7 @@ cd go-librespot
 go build -o go-librespot ./cmd/daemon   # check the repo's own README for the exact build target — this may have moved
 ```
 
-### 5.2 Configure it — ☐ to do
+### 5.2 Configure it — ✅ done 2026-09-23
 
 Create `~/go-librespot/config.yml`:
 
@@ -172,7 +172,7 @@ mpris_enabled: false
 
 Check go-librespot's own `config.yml.example`/README on whatever version you installed — field names may have shifted since this was researched.
 
-### 5.3 Run it — ☐ to do
+### 5.3 Run it — ✅ done 2026-09-23
 
 Use `tmux` (or `screen`) so it survives your SSH session disconnecting — a real systemd unit is Phase 10's job, not now:
 
@@ -186,7 +186,7 @@ cd ~/go-librespot
 # Ctrl+B then D to detach; `tmux attach -t librespot` to come back
 ```
 
-### 5.4 Smoke-test control and metadata — ☐ to do
+### 5.4 Smoke-test control and metadata — ✅ done 2026-09-23
 
 From your phone: open the Spotify app, tap the Connect/devices icon, and pick **WinampDeck**. Start playing something.
 
@@ -236,29 +236,42 @@ So the real `EngineClient` doesn't need to compare device IDs at all — it just
 
 **Goal**: spawn mpv, drive it over its JSON IPC socket the way the real `RadioClient` will, and sanity-check the `aid no`/`aid auto` mute mechanism from [ADR 0004](adr/0004-audio-device-sharing.md) — confirming plain `pause` leaves the audio device held open while deselecting the audio track actually releases it.
 
-### 6.1 Install mpv — ☐ to do
+### 6.1 Install mpv — ✅ done 2026-09-23
 
 ```bash
 sudo apt install -y mpv
 ```
 
-### 6.2 Spawn it with its IPC socket enabled — ☐ to do
+### 6.2 Spawn it with its IPC socket enabled — ✅ done 2026-09-23
+
+Check for a stale session before creating one — reusing a name that's already taken silently runs the following commands in your plain shell instead of inside tmux, which is exactly what happened with go-librespot in Phase 2 (you won't be able to detach, and `tmux new` will print `duplicate session: mpv`):
+
+```bash
+tmux ls
+```
+
+If `mpv` is already listed, clear it first: `tmux kill-session -t mpv`. Then start clean, and don't move to the next command until you've confirmed no "duplicate session" error:
 
 ```bash
 tmux new -s mpv
+```
+
+Only once you're actually inside the new session:
+
+```bash
 mpv --idle --no-video --input-ipc-server=/tmp/mpv-socket --audio-device=alsa/plug:dmixer
 # Ctrl+B then D to detach
 ```
 
 `--idle` keeps it running with nothing loaded (mirroring how the real controller will spawn it once, for the Deck's whole uptime); `--audio-device=alsa/plug:dmixer` points it at the same shared `dmix` device go-librespot uses — through `plug`, not the bare `dmixer` name, so mismatched-rate radio streams get resampled correctly instead of playing back sped up (confirmed necessary with go-librespot in Phase 2 — see [ADR 0004](adr/0004-audio-device-sharing.md)).
 
-### 6.3 Drive it over the socket — ☐ to do
+### 6.3 Drive it over the socket — ✅ done 2026-09-23
 
 From another SSH session:
 
 ```bash
-# Tune a station (pick any real internet radio stream URL for this test):
-echo '{"command": ["loadfile", "https://<some-station-stream-url>"]}' | socat - /tmp/mpv-socket
+# Tune a station (any real internet radio stream URL works, e.g. this one):
+echo '{"command": ["loadfile", "https://streams.radiobob.de/ozzyosbourne/mp3-192"]}' | socat - /tmp/mpv-socket
 
 # Check it's actually playing:
 echo '{"command": ["get_property", "pause"]}' | socat - /tmp/mpv-socket
@@ -271,7 +284,7 @@ echo '{"command": ["set_property", "pause", false]}' | socat - /tmp/mpv-socket
 
 You should hear the stream start, pause, and resume through the amp.
 
-### 6.4 Confirm the `aid no`/`aid auto` device-release behavior — ☐ to do
+### 6.4 Confirm the `aid no`/`aid auto` device-release behavior — ✅ confirmed 2026-09-23
 
 This is the actual point of Phase 3 per the delivery plan — confirming the difference ADR 0004's research found between plain `pause` (keeps the ALSA device open) and deselecting the audio track (actually releases it):
 
@@ -280,10 +293,9 @@ This is the actual point of Phase 3 per the delivery plan — confirming the dif
 cat /proc/asound/card0/pcm0p/sub0/status | grep state
 # expect: state: RUNNING
 
-# 2. Plain pause — the device should stay open, just not producing new samples:
+# 2. Plain pause:
 echo '{"command": ["set_property", "pause", true]}' | socat - /tmp/mpv-socket
 cat /proc/asound/card0/pcm0p/sub0/status | grep state
-# expect: state: PAUSED  (device still held — this is the behavior the mute mechanism must NOT rely on)
 
 # 3. Un-pause, then deselect the audio track instead — this should fully release the device:
 echo '{"command": ["set_property", "pause", false]}' | socat - /tmp/mpv-socket
@@ -297,13 +309,13 @@ cat /proc/asound/card0/pcm0p/sub0/status | grep state
 # expect: state: RUNNING again
 ```
 
-If step 2 shows `PAUSED` (device held) and step 3 shows the device gone entirely, you've confirmed exactly the distinction ADR 0004 is built on — the controller must always use `aid no`/`aid auto` to mute Radio, never plain `pause` alone.
+**Real-hardware result (2026-09-23), through the `plug:dmixer` device from Phase 3's setup:** step 2 showed `state: RUNNING`, not `PAUSED` — `dmix`/`plug` virtual devices don't support ALSA's hardware-pause capability the way a raw `hw:` device does, so mpv's ALSA driver never calls `snd_pcm_pause()` here; it just stops feeding new audio while leaving the substream open. That's a variant on what was originally expected (a raw-hw-device test would likely show `PAUSED`), but the distinction that actually matters is unaffected and fully confirmed: plain `pause` never releases the substream (`RUNNING` = still held open) while `aid no` closes it outright (`closed`) and `aid auto` reopens it. That confirms the [ADR 0004](adr/0004-audio-device-sharing.md) decision — the controller must always use `aid no`/`aid auto` to mute Radio, never plain `pause` alone, on this dmix-based setup.
 
 ### 6.5 Optional: run both Engines together as a first look at Phase 4
 
 Not required for Phase 3's exit criteria, but if go-librespot from Phase 2 is still running, this is a cheap early look at what Phase 4 will validate properly later: start Spotify playing, then start mpv playing a station too (both on `dmixer`), and confirm no `EBUSY` and no audio glitch. Then use go-librespot's `/player/pause` and mpv's `aid no`/`aid auto` to switch which one is actually audible a few times in a row.
 
-**Phase 3 exit criteria met when:** mpv responds correctly to loadfile/pause/resume over IPC, and you've directly observed the `pause`-keeps-device-open vs. `aid no`-releases-device distinction on this board.
+**Phase 3 exit criteria met when:** mpv responds correctly to loadfile/pause/resume over IPC, and you've directly observed the `pause`-keeps-device-open vs. `aid no`-releases-device distinction on this board. **Confirmed 2026-09-23.**
 
 ---
 
