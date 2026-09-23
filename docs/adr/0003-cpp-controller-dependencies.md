@@ -12,3 +12,5 @@ The original brainstorm's library list (Asio, libcurl, nlohmann/json, SQLite3, l
 - **stations.csv** (name, stream URL, logo filename) — hand-parsed, no CSV library.
 
 Dropped: libcurl, SQLite3 ([ADR 0002](0002-drop-sqlite-and-frontend.md)), libgpiod and raw i2c-dev/spidev ioctl (folded into pigpio).
+
+**Update (2026-09-23):** wired up in Phase 0 ([cmake/Dependencies.cmake](../../cmake/Dependencies.cmake)). The header-only libraries are fetched at configure time and pinned exactly; pigpio stays a system library on the Pi, linked only with `-DWINAMPDECK_WITH_PIGPIO=ON`. GoogleTest is added as a test-only dependency. Two of the pins are forced, and were confirmed by compiling against the alternatives: websocketpp's last release (0.8.2, 2020) doesn't compile as C++20, so it's pinned to a `develop` commit that has the fix; and that commit still uses `asio::io_service`, which Asio 1.33 removed, so Asio is held at 1.30.2. Any bump of either has to move both together.

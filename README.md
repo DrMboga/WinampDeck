@@ -28,6 +28,16 @@ See:
 - [docs/wiring.md](docs/wiring.md) — the 40-pin header allocation for the HAT, TFT, LCD, and button/LED expander
 - [docs/pi-setup.md](docs/pi-setup.md) — from-scratch Raspberry Pi OS setup and Engine (go-librespot/mpv) smoke-testing
 
+## Building
+
+Needs CMake 3.24+ and a C++20 compiler (GCC 12+) on Linux. The header-only dependencies and GoogleTest are downloaded at configure time.
+
+```bash
+cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build --output-on-failure
+```
+
+On the Pi, add `-DWINAMPDECK_WITH_PIGPIO=ON` to link the real hardware layer against the system's pigpio.
+
 ## Status
 
-In design — no controller code yet. The hardware panel exists and is wired for buttons/LEDs; the software architecture is specified but not implemented.
+Phase 0 (project scaffolding) is done: the CMake project, pinned dependencies, and CI are in place, but there's no controller logic yet. The hardware panel exists and is wired for buttons/LEDs. Both Engines (go-librespot and mpv) have been smoke-tested on the Pi by hand. See the [delivery plan](docs/delivery-plan.md).

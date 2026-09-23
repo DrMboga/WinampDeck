@@ -4,11 +4,13 @@ This breaks the [spec](../.tracker/controller-v1/spec.md) into an order to actua
 
 Each phase lists what it delivers and how to know it's actually done (exit criteria), not just "code written."
 
-## Phase 0 — Project scaffolding
+## Phase 0 — Project scaffolding ✅
 
 Set up the CMake project (C++20), pull in the dependencies (Asio, websocketpp, cpp-httplib, nlohmann/json, pigpio), and get a CI job running the test suite on every push.
 
 **Exit criteria:** the project builds clean, and a trivial test runs in CI.
+
+**Status: done (2026-09-23).** The top-level `CMakeLists.txt` splits the code into `winampdeck_core` (the hardware-free library `PlayerController` will live in) and the `winampdeck` binary. [cmake/Dependencies.cmake](../cmake/Dependencies.cmake) pins every dependency (see [ADR 0003](adr/0003-cpp-controller-dependencies.md)'s update for the two forced pins), and GoogleTest is the test framework. The test suite has a trivial version test plus one test per header-only dependency, proving they all compile together as C++20. [.github/workflows/ci.yml](../.github/workflows/ci.yml) builds and tests on every push with warnings as errors, under GCC 12 and GCC 14 (the compilers in Raspberry Pi OS Bookworm and Trixie). Verified locally under GCC 12.4: the build is warning-free and all 5 tests pass. pigpio linking (`-DWINAMPDECK_WITH_PIGPIO=ON`) is wired up but won't be exercised until the first pigpio-backed code exists, in Phase 5.
 
 ## Phase 1 — Core orchestration, no hardware at all
 

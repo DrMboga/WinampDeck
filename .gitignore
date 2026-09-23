@@ -1,2 +1,6 @@
 .tracker/
 docs/*.pdf
+
+# CMake build trees
+build/
+build-*/
