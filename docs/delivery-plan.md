@@ -26,6 +26,11 @@ This is the biggest phase in terms of decisions made real, and the one the spec'
 
 **Exit criteria (both):** Spotify and Radio each play/pause/skip correctly through the *same* `PlayerController` already proven in Phase 1 — only the adapter underneath changed.
 
+**Progress (2026-09-23):** done on the target Pi 3 itself rather than a dev machine, since it was already set up for [ADR 0004](adr/0004-audio-device-sharing.md)'s hardware checks — see [pi-setup.md](pi-setup.md) for the full setup/smoke-test log.
+- **Phase 2 (go-librespot): smoke-tested and confirmed.** REST control, WebSocket metadata/event flow, and the auto-switch signal (`active`/`inactive` events — simpler than the device-ID comparison originally anticipated in [spec.md](../.tracker/controller-v1/spec.md#implementation-decisions), worth revisiting there once the C++ `EngineClient` is written) all confirmed against a real phone. Along the way, found and fixed a real-audio-only bug: the shared `dmixer` ALSA device needs to be referenced as `plug:dmixer`, not bare `dmixer`, or playback comes out sped up/pitched up (rate-mismatch — recorded in [ADR 0004](adr/0004-audio-device-sharing.md)'s update log).
+- **Phase 3 (mpv): not started yet.**
+- Not yet done for either: the real `EngineClient`/`RadioClient` C++ code — this was manual CLI smoke-testing only, per the phase's own scope. Neither Engine is set up to survive a reboot yet (no systemd units — that's [Phase 10](#phase-10--packaging)).
+
 ## Phase 4 — The real HiFiBerry Digi+ Pro, and both engines sharing it
 
 Wire up the actual HAT, configure the `dmix` device, and run go-librespot and mpv side by side, switching Source back and forth repeatedly and rapidly. This is where [ADR 0004](adr/0004-audio-device-sharing.md)'s open questions — which were based on reading source and docs, not a real board — actually get answered.

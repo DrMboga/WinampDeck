@@ -26,6 +26,7 @@ See:
 - [docs/architecture.md](docs/architecture.md) — how the software works, in plain language
 - [docs/delivery-plan.md](docs/delivery-plan.md) — the phased build-out plan
 - [docs/wiring.md](docs/wiring.md) — the 40-pin header allocation for the HAT, TFT, LCD, and button/LED expander
+- [docs/pi-setup.md](docs/pi-setup.md) — from-scratch Raspberry Pi OS setup and Engine (go-librespot/mpv) smoke-testing
 
 ## Status
 
