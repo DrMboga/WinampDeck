@@ -12,13 +12,22 @@ Set up the CMake project (C++20), pull in the dependencies (Asio, websocketpp, c
 
 **Status: done (2026-09-23).** The top-level `CMakeLists.txt` splits the code into `winampdeck_core` (the hardware-free library `PlayerController` will live in) and the `winampdeck` binary. [cmake/Dependencies.cmake](../cmake/Dependencies.cmake) pins every dependency (see [ADR 0003](adr/0003-cpp-controller-dependencies.md)'s update for the two forced pins), and GoogleTest is the test framework. The test suite has a trivial version test plus one test per header-only dependency, proving they all compile together as C++20. [.github/workflows/ci.yml](../.github/workflows/ci.yml) builds and tests on every push with warnings as errors, under GCC 12 and GCC 14 (the compilers in Raspberry Pi OS Bookworm and Trixie). Verified locally under GCC 12.4: the build is warning-free and all 5 tests pass. pigpio linking (`-DWINAMPDECK_WITH_PIGPIO=ON`) is wired up but won't be exercised until the first pigpio-backed code exists, in Phase 5.
 
-## Phase 1 — Core orchestration, no hardware at all
+## Phase 1 — Core orchestration, no hardware at all ✅
 
 Implement `EngineClient`, `RadioClient`, and `HardwareIO` as interfaces with simple in-memory fakes standing in for go-librespot, mpv, and pigpio. Then build `PlayerController` against those interfaces: the Source state machine, Eject's short/long-press split, Play/Pause/Next/Previous dispatch, Shuffle/Repeat behaving differently for Spotify vs. Radio, Station List navigation, and the auto-switch logic (including the device-ID check that stops it firing for Spotify activity elsewhere on the account).
 
 This is the biggest phase in terms of decisions made real, and the one the spec's whole "Testing Decisions" section is about.
 
 **Exit criteria:** every scenario in the spec's button map and user stories is covered by a passing test, with zero real hardware, sockets, or subprocesses involved.
+
+**Status: done (2026-09-24).** [`PlayerController`](../src/core/player_controller.hpp) lives in `winampdeck_core` and talks to the outside only through `EngineClient`, `RadioClient`, and `HardwareIO`, plus two small seams the spec didn't name: `Scheduler` (one-shot timers, for Eject's long press, Asio-backed in production) and `SystemControl` (the Safe Shutdown poweroff). Each interface delivers its events through a `Listener` that `PlayerController` registers itself as. The in-memory fakes are in [tests/fakes.hpp](../tests/fakes.hpp); 65 scenario tests, one file per area (Eject, Source switching, Spotify, Radio, Station List, auto-switch), cover every cell of the button map. Verified warning-free under GCC 12.4. Decisions the spec left open, made here:
+- **Auto-switch** keys off an `onSpotifyActiveChanged` event ("this Deck is the account's Connect target") rather than comparing device IDs in the core, matching what Phase 2 found go-librespot's `active`/`inactive` events already give us. It fires only on the *transition* into active-and-playing, so a stale `playing` event arriving just after Eject paused Spotify doesn't bounce the Source straight back.
+- **Eject's long press** fires Safe Shutdown at the 2s mark while still held (not on release), after putting "Shutting down" on the LCD; every input is ignored from then on.
+- **Returning to Spotify** resumes it only if it was playing when Eject switched away (and the session hasn't moved to another device since). Returning to Radio keeps the tuned Station and its pause state; the first switch to Radio tunes the first Station.
+- **Stopped** (startup only) ignores every button except Eject, whose short press goes to Spotify.
+- **LEDs** mirror go-librespot's reported shuffle/repeat state, not the button press. In Radio, Shuffle's LED is off and Repeat's means "Station List open."
+- **Station stepping** (Previous/Next, both in and out of the Station List) wraps around the ends. Shuffle picks a random Station other than the current one.
+- **LCD text** is `Artist — Track` / `Station — Stream Title`, falling back to "Spotify" / the Station name alone when there's nothing more; the actual scrolling and glyph mapping are the LCD view's job in Phase 7.
 
 ## Phases 2–3 — Wire in the real engines (can happen in parallel, and don't need the Pi yet)
 

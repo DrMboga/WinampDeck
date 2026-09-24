@@ -40,4 +40,4 @@ On the Pi, add `-DWINAMPDECK_WITH_PIGPIO=ON` to link the real hardware layer aga
 
 ## Status
 
-Phase 0 (project scaffolding) is done: the CMake project, pinned dependencies, and CI are in place, but there's no controller logic yet. The hardware panel exists and is wired for buttons/LEDs. Both Engines (go-librespot and mpv) have been smoke-tested on the Pi by hand. See the [delivery plan](docs/delivery-plan.md).
+Phases 0 (project scaffolding) and 1 (core orchestration) are done: the CMake project, pinned dependencies, and CI are in place, and `PlayerController` — the Source/button/Station List/display logic — is implemented and tested against in-memory fakes. No real Engine or hardware adapters exist yet, so the binary doesn't do anything useful on the Pi yet. The hardware panel exists and is wired for buttons/LEDs. Both Engines (go-librespot and mpv) have been smoke-tested on the Pi by hand. See the [delivery plan](docs/delivery-plan.md).

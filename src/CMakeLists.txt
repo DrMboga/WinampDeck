@@ -1,8 +1,9 @@
 # winampdeck_core: the hardware-free decision-making (PlayerController and the
-# EngineClient/RadioClient/HardwareIO interfaces, from Phase 1 on). It must never
+# EngineClient/RadioClient/HardwareIO interfaces it drives). It must never
 # link pigpio, sockets, or subprocess code, so the whole state machine stays
 # testable in plain CI.
 add_library(winampdeck_core
+    core/player_controller.cpp
     core/version.cpp)
 target_include_directories(winampdeck_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(winampdeck_core PRIVATE WINAMPDECK_VERSION="${PROJECT_VERSION}")

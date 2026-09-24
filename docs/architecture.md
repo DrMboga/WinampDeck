@@ -46,10 +46,15 @@ stateDiagram-v2
     Stopped --> Spotify: Eject (short press)
     Spotify --> Radio: Eject (short press)
     Radio --> Spotify: Eject (short press)
-    Spotify --> Spotify: Phone presses Play\n(auto-switch)
+    Stopped --> Spotify: Phone plays on the Deck\n(auto-switch)
+    Radio --> Spotify: Phone plays on the Deck\n(auto-switch)
 ```
 
-That last transition — a phone pressing Play automatically taking over — only fires when the Spotify activity is actually happening *on this Deck*. Spotify's API reports playback for the whole account, not per-speaker, so the controller checks that the reported device ID matches the Deck's own before treating it as "this Deck should go audible," so playing Spotify on your phone's own speaker doesn't yank the radio away.
+Stopped is only where the Deck starts: until Eject is pressed or a phone starts playing on it, every other button does nothing. From any state, holding Eject for about two seconds triggers a Safe Shutdown the moment the two seconds are up — while still held, so you know when to let go — after putting "Shutting down" on the LCD.
+
+The auto-switch transitions — a phone pressing Play taking over automatically — only fire when the Spotify activity is actually happening *on this Deck*. A Spotify account can be playing on any of its devices, so "the account is playing" isn't enough. go-librespot already answers the right question: it emits `active` when this Deck becomes the account's Connect target and `inactive` when playback moves elsewhere, so the controller switches only when Spotify goes from not-playing-here to playing-here. No device-ID comparison is needed, and playing Spotify on your phone's own speaker never yanks the radio away. Because it reacts to that *change* rather than to every `playing` event, a late event that was already in flight when Eject paused Spotify can't bounce the Source straight back.
+
+Switching back to a Source picks up where it left off: Spotify resumes only if it was playing when you switched away (and the session hasn't since moved to another device), and Radio comes back on the same Station, paused or not. The first switch to Radio tunes the first Station in the list.
 
 ## Talking to Spotify: go-librespot
 
@@ -59,11 +64,11 @@ The original, most widely-used Spotify Connect implementation (`librespot`, in R
 
 ## Talking to the radio: mpv
 
-mpv is started once, as a background process, with its JSON control socket enabled. From then on the controller talks to it the same way any mpv remote-control frontend would: write a JSON command to the socket, read the JSON reply. Tuning a station is "load this URL"; Play/Pause/Next/Previous/Shuffle map onto that one loaded stream and stepping through the station list.
+mpv is started once, as a background process, with its JSON control socket enabled. From then on the controller talks to it the same way any mpv remote-control frontend would: write a JSON command to the socket, read the JSON reply. mpv itself knows nothing about the station list — it only ever gets told "play this URL," "pause," "resume," "mute," or "unmute." Everything else is the controller's: Play/Pause act on the one loaded stream; Previous/Next step to the adjacent Station, wrapping around the ends; Shuffle jumps to a random Station other than the current one; and Repeat opens the Station List on the TFT, where Previous/Next move the highlight, Play tunes it, and Repeat backs out. The Shuffle and Repeat LEDs follow suit: for Spotify they mirror the shuffle/repeat state go-librespot reports (so a change made from a phone shows up too), while for Radio Shuffle's LED stays off and Repeat's means "Station List open."
 
 ## Sharing one audio output between two players
 
-Both go-librespot and mpv ultimately want to write PCM audio to the same physical output — the HiFiBerry Digi+ Pro. Two processes can't normally open the same raw ALSA hardware device at once without one of them failing. The fix has two parts. First, both are configured to write to a `dmix`-wrapped version of the device rather than the raw hardware device — `dmix` is ALSA's own software mixer, built to let multiple programs share one output safely. Second, the "muted" player needs to actually let go of the device rather than just going quiet: go-librespot already does this correctly on its own (it closes its audio handle whenever it's paused or idle), and mpv is told to deselect its audio track entirely (rather than just pausing) when it's the inactive Source, which makes it release the device the same way.
+Both go-librespot and mpv ultimately want to write PCM audio to the same physical output — the HiFiBerry Digi+ Pro. Two processes can't normally open the same raw ALSA hardware device at once without one of them failing. The fix has two parts. First, both are configured to write to a `dmix`-wrapped version of the device rather than the raw hardware device — `dmix` is ALSA's own software mixer, built to let multiple programs share one output safely. They reach it through ALSA's `plug` layer (`plug:dmixer`), because the mixer runs at a fixed 48kHz and Spotify's 44.1kHz audio (and radio streams at all sorts of rates) would otherwise play back sped up; `plug` converts the rate on the way in. Second, the "muted" player needs to actually let go of the device rather than just going quiet: go-librespot already does this correctly on its own (it closes its audio handle whenever it's paused or idle), and mpv is told to deselect its audio track entirely (rather than just pausing) when it's the inactive Source, which makes it release the device the same way.
 
 ## The two displays
 
@@ -83,7 +88,9 @@ Everything the controller waits on — a timer tick for LCD scrolling, the Eject
 
 ## Built to be tested without hardware
 
-The button/Source/display logic — the actual decision-making part of the app — is written against three narrow interfaces rather than talking to go-librespot, mpv, or pigpio directly: one for Spotify control and events, one for radio control, one for buttons/LEDs/displays. In production those are backed by the real REST/WebSocket client, the real mpv IPC socket, and real pigpio calls. In tests, they're backed by simple fakes, so the whole state machine — what happens on a short vs. long Eject press, how Shuffle differs between Spotify and Radio, Station List navigation — can be exercised and verified without a Raspberry Pi, a Spotify account, or a soldering iron anywhere nearby.
+The button/Source/display logic — the actual decision-making part of the app, a single `PlayerController` — is written against three narrow interfaces rather than talking to go-librespot, mpv, or pigpio directly: `EngineClient` for Spotify control and events, `RadioClient` for radio control, and `HardwareIO` for buttons/LEDs/displays. Two even smaller ones cover the rest of the outside world: a `Scheduler` for timers (the Eject long press), and `SystemControl` for the Safe Shutdown poweroff. In production those are backed by the real REST/WebSocket client, the real mpv IPC socket, real pigpio calls, Asio timers, and a real poweroff. In tests, they're backed by simple fakes — including a clock the test moves forward by hand — so the whole state machine — what happens on a short vs. long Eject press, how Shuffle differs between Spotify and Radio, Station List navigation, when auto-switch fires — can be exercised and verified without a Raspberry Pi, a Spotify account, or a soldering iron anywhere nearby.
+
+`PlayerController` doesn't draw anything itself. It works out *what* the panel should show — the LED states, the LCD's one line of text ("Artist — Track" or "Station — Stream Title"), and either a Now Playing or a Station List screen for the TFT — and hands that to `HardwareIO` whenever it changes. How it looks (the Winamp skin, the font, the scrolling) belongs to the display code underneath.
 
 ## Where to look next
 

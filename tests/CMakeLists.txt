@@ -2,7 +2,13 @@ include(GoogleTest)
 
 add_executable(winampdeck_tests
     version_test.cpp
-    dependencies_test.cpp)
+    dependencies_test.cpp
+    auto_switch_test.cpp
+    eject_test.cpp
+    radio_test.cpp
+    source_switching_test.cpp
+    spotify_test.cpp
+    station_list_test.cpp)
 target_link_libraries(winampdeck_tests PRIVATE
     winampdeck_core
     winampdeck_warnings
