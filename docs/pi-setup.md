@@ -311,7 +311,7 @@ cat /proc/asound/card0/pcm0p/sub0/status | grep state
 
 **Real-hardware result (2026-09-23), through the `plug:dmixer` device from Phase 3's setup:** step 2 showed `state: RUNNING`, not `PAUSED` — `dmix`/`plug` virtual devices don't support ALSA's hardware-pause capability the way a raw `hw:` device does, so mpv's ALSA driver never calls `snd_pcm_pause()` here; it just stops feeding new audio while leaving the substream open. That's a variant on what was originally expected (a raw-hw-device test would likely show `PAUSED`), but the distinction that actually matters is unaffected and fully confirmed: plain `pause` never releases the substream (`RUNNING` = still held open) while `aid no` closes it outright (`closed`) and `aid auto` reopens it. That confirms the [ADR 0004](adr/0004-audio-device-sharing.md) decision — the controller must always use `aid no`/`aid auto` to mute Radio, never plain `pause` alone, on this dmix-based setup.
 
-### 6.5 Optional: run both Engines together as a first look at Phase 4
+### 6.5 Optional: run both Engines together as a first look at Phase 4 (superseded by [Phase 4](#phase-4--both-engines-sharing-the-hat) below)
 
 Not required for Phase 3's exit criteria, but if go-librespot from Phase 2 is still running, this is a cheap early look at what Phase 4 will validate properly later: start Spotify playing, then start mpv playing a station too (both on `dmixer`), and confirm no `EBUSY` and no audio glitch. Then use go-librespot's `/player/pause` and mpv's `aid no`/`aid auto` to switch which one is actually audible a few times in a row.
 
@@ -319,9 +319,85 @@ Not required for Phase 3's exit criteria, but if go-librespot from Phase 2 is st
 
 ---
 
+## Phase 4 — both Engines sharing the HAT
+
+**Goal**: run go-librespot and mpv side by side on `plug:dmixer` and switch Source repeatedly and rapidly, confirming no device-busy error and no audio glitch ([delivery plan](delivery-plan.md#phase-4--the-real-hifiberry-digi-pro-and-both-engines-sharing-it)). **Done 2026-09-25.**
+
+### 7.1 Start both Engines with log files
+
+```bash
+tmux kill-session -t librespot 2>/dev/null; tmux kill-session -t mpv 2>/dev/null
+tmux new -d -s librespot "cd ~/go-librespot && ./go-librespot --config_dir ~/go-librespot 2>&1 | tee ~/librespot.log"
+tmux new -d -s mpv "mpv --idle --no-video --input-ipc-server=/tmp/mpv-socket --audio-device=alsa/plug:dmixer --log-file=$HOME/mpv.log"
+```
+
+Then start Spotify on WinampDeck from the phone, and load a Station. **Select the audio track before loading.** If `aid` was left at `no` (for example by the soak script's last step), mpv drops the new stream immediately (`No video or audio streams selected` in `mpv.log`), even though `loadfile` replies `success`:
+
+```bash
+echo '{"command": ["set_property", "aid", "auto"]}' | socat - /tmp/mpv-socket
+echo '{"command": ["loadfile", "https://streams.radiobob.de/ozzyosbourne/mp3-192"]}' | socat - /tmp/mpv-socket
+# both audible, mixed. Make Spotify the Source:
+echo '{"command": ["set_property", "aid", "no"]}' | socat - /tmp/mpv-socket
+```
+
+### 7.2 The switching soak script
+
+`~/switch-soak.sh <cycles> <seconds-per-source>` switches Source the way ADR 0004 decided: go-librespot through `pause`/`resume`, mpv through `aid auto`/`aid no`. Each switch mutes the outgoing Engine and then unmutes the incoming one. After every switch the script records both Engines' replies and the hardware PCM state, and it refuses to start if mpv has no Station loaded.
+
+```bash
+cat > ~/switch-soak.sh <<'EOF'
+#!/usr/bin/env bash
+# Usage: ./switch-soak.sh <cycles> <seconds-per-source>
+N=${1:-20}; DWELL=${2:-3}
+LS=http://localhost:3678; SOCK=/tmp/mpv-socket
+LOG=~/soak-${N}x${DWELL}-$(date +%H%M%S).log
+mpv() { echo "{\"command\": $1}" | socat - "$SOCK" | grep -o '"error":"[^"]*"'; }
+mpv_idle() { echo '{"command": ["get_property","idle-active"]}' | socat - "$SOCK" | grep -o '"data":[a-z]*'; }
+ls_post() { curl -s -o /dev/null -w '%{http_code}' -X POST "$LS/player/$1"; }
+ls_paused() { curl -s "$LS/status" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("paused" if d.get("paused") else ("stopped" if d.get("stopped") else "playing"))' 2>/dev/null || echo "status-err"; }
+hw() { head -1 /proc/asound/card0/pcm0p/sub0/status 2>/dev/null | tr -d ' ' || echo gone; }
+[[ $(mpv_idle) == '"data":false' ]] || { echo "ABORT: mpv has no station loaded - loadfile first"; exit 1; }
+bad=0; silent=0
+for i in $(seq 1 "$N"); do
+  a=$(ls_post pause); b=$(mpv '["set_property","aid","auto"]')          # -> Radio
+  sleep "$DWELL"
+  h=$(hw); echo "$i RADIO   ls_pause=$a mpv_aid=$b ls=$(ls_paused) hw=$h" | tee -a "$LOG"
+  [[ $a == 2* && $b == *success* ]] || bad=$((bad+1)); [[ $h == *RUNNING* ]] || silent=$((silent+1))
+  c=$(mpv '["set_property","aid","no"]'); d=$(ls_post resume)          # -> Spotify
+  sleep "$DWELL"
+  h=$(hw); echo "$i SPOTIFY mpv_aid=$c ls_resume=$d ls=$(ls_paused) hw=$h" | tee -a "$LOG"
+  [[ $c == *success* && $d == 2* ]] || bad=$((bad+1)); [[ $h == *RUNNING* ]] || silent=$((silent+1))
+done
+echo "DONE: $N cycles, dwell ${DWELL}s, failed commands: $bad, device-not-running: $silent, log: $LOG" | tee -a "$LOG"
+EOF
+chmod +x ~/switch-soak.sh
+
+~/switch-soak.sh 10 5 && ~/switch-soak.sh 30 1 && ~/switch-soak.sh 50 0.3
+```
+
+Afterwards, check the logs. Note that the pattern `err` also matches inside "hifib**err**y", so filter `mpv.log` by log level instead:
+
+```bash
+grep -iE "busy|xrun|underrun|underflow" ~/librespot.log ~/mpv.log
+grep -E "\]\[(e|w|f)\]" ~/mpv.log | tail -20
+dmesg | grep -iE "snd|hifiberry|i2s|xrun" | tail -20
+vcgencmd get_throttled
+```
+
+### 7.3 Results (2026-09-25)
+
+- **Mixing:** both Engines audible at the same time, no `EBUSY`.
+- **Soak:** 90 switches (10×5s, 30×1s, 50×0.3s), 0 failed commands, hardware PCM `RUNNING` after every switch, no busy/XRUN/underrun in either log, `throttled=0x0`. Switching was audibly smooth with no clicks, and Radio came back with no delay, resuming where it was muted rather than at the live position.
+- **Long mute:** after a mute of a few minutes, the station's server had dropped the connection (`tls: IO error: End of file` / `Stream ends prematurely` in `mpv.log`), so `aid auto` brought back silence (`demuxer-cache-state` `eof: true`, PCM `closed`, yet `idle-active: false`). Switching to Radio in the controller therefore needs a re-`loadfile`. How long a mute a stream survives is still unmeasured.
+- **`dmesg`:** some `bcm2835-i2s ... FIFO clear timed out: no PCM clock` warnings, only when the last client released the device in an odd state (an Engine killed mid-play, a soak run with no Station loaded). Nothing audible. Treated as harmless; see [ADR 0004](adr/0004-audio-device-sharing.md).
+- **Network:** Wi-Fi dropped partway through (`wpa_supplicant: wlan0: Failed to initiate sched scan`, NetworkManager `link timed out`, no reconnect). The Pi stayed up and both Engines kept running, but it was unreachable until Ethernet was plugged in (new DHCP address). The rest ran over Ethernet with `sudo nmcli radio wifi off`. Turn Wi-Fi back on with `sudo nmcli radio wifi on`.
+
+---
+
 ## What's next
 
-Phases 2 and 3 are Engine-only smoke tests — no real `EngineClient`/`RadioClient` C++ code exists yet, and none of this needs to survive a reboot cleanly (that's [Phase 10](delivery-plan.md#phase-10--packaging)'s systemd units). Once both are confirmed working here:
+Phases 2–4 are Engine-only tests — no real `EngineClient`/`RadioClient` C++ code exists yet, and none of this needs to survive a reboot cleanly (that's [Phase 10](delivery-plan.md#phase-10--packaging)'s systemd units). Next:
 
 - The actual `EngineClient` (REST+WebSocket client for go-librespot) and `RadioClient` (JSON IPC client for mpv) get implemented in the C++ controller, against the interfaces already proven correct in Phase 1.
-- [Phase 4](delivery-plan.md#phase-4--the-real-hifiberry-digi-pro-and-both-engines-sharing-it) is where the two Engines get soak-tested sharing the HAT for real — switching Source repeatedly and rapidly — closing out the still-open item at the bottom of [ADR 0004](adr/0004-audio-device-sharing.md).
+- `RadioClient` must handle the two Phase 4 findings above: select the audio track before `loadfile`, and re-`loadfile` the Station when switching Source to Radio rather than relying on `aid auto` alone.
+- Still open: a long-mute test (30+ minutes muted, then `aid auto`) to measure how long a muted stream survives, and Wi-Fi reliability with the HAT fitted.

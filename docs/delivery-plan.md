@@ -42,11 +42,19 @@ This is the biggest phase in terms of decisions made real, and the one the spec'
 - **Phase 3 (mpv): smoke-tested and confirmed.** IPC control (loadfile/pause/resume) works correctly against a real internet radio stream, at the right speed (same `plug:dmixer` fix as Phase 2). The `pause`-keeps-device-open vs. `aid no`-releases-device distinction ADR 0004's mute mechanism depends on is directly confirmed on real hardware — see that ADR's update log for the exact (slightly different-than-expected, but conclusion-unchanged) `/proc/asound` states observed.
 - **Not yet done, for either phase: the actual exit criteria above** — that requires the real `EngineClient`/`RadioClient` C++ code running behind `PlayerController`, and no controller code exists yet ([README](../README.md)'s Status section still says so). What's done is the manual-CLI-smoke-test half both phase descriptions call for: both Engines install cleanly, respond correctly to the same commands/IPC calls the real adapters will issue, and the two ADR-0004-relevant behaviors (auto-switch signal, `aid no`/`aid auto` device release) are confirmed on the actual board rather than just from reading source. That derisks writing `EngineClient`/`RadioClient` next — it doesn't replace it. Neither Engine is set up to survive a reboot yet (no systemd units — that's [Phase 10](#phase-10--packaging)).
 
-## Phase 4 — The real HiFiBerry Digi+ Pro, and both engines sharing it
+## Phase 4 — The real HiFiBerry Digi+ Pro, and both engines sharing it ✅
 
 Wire up the actual HAT, configure the `dmix` device, and run go-librespot and mpv side by side, switching Source back and forth repeatedly and rapidly. This is where [ADR 0004](adr/0004-audio-device-sharing.md)'s open questions — which were based on reading source and docs, not a real board — actually get answered.
 
 **Exit criteria:** switching Source many times in a row never produces a device-busy error or an audio glitch.
+
+**Status: done (2026-09-25).** The HAT and `dmix` device were already in place from the earlier hardware checks ([pi-setup.md](pi-setup.md) steps 3–5). Both Engines played mixed at the same time with no `EBUSY`. Then a soak script switched Source 90 times in a row (at 5s, 1s and 0.3s per Source) with zero failed commands, the hardware PCM `RUNNING` after every switch, no busy/XRUN/underrun errors in either Engine's log, no undervoltage, and audibly smooth switching. Procedure and raw results: [pi-setup.md](pi-setup.md#phase-4--both-engines-sharing-the-hat); conclusions: [ADR 0004](adr/0004-audio-device-sharing.md)'s 2026-09-25 update. Like Phases 2–3, this was done by driving the Engines directly, standing in for the controller; no C++ adapter code is involved yet.
+
+Findings the future `RadioClient` must handle (details in ADR 0004):
+- `aid no` carries over into the next `loadfile`, so loading a Station while muted silently fails.
+- A muted stream isn't read, so after a mute of several minutes the station's server drops the connection and `aid auto` brings back silence. Switching to Radio needs to re-`loadfile` the Station. **Open follow-up:** measure how long a mute a stream actually survives (a 30+ minute mute test was cut short).
+
+Separately, the Pi's Wi-Fi dropped mid-session (`wpa_supplicant: Failed to initiate sched scan`, then no reconnect) and the rest of Phase 4 ran over Ethernet with Wi-Fi turned off. It's unrelated to audio, but it's a risk if the finished Deck runs on Wi-Fi. The HAT sits over the Pi 3's antenna, much like the Zero 2 W problem in [ADR 0005](adr/0005-target-board-pi-3b.md). Worth investigating (Wi-Fi power-save off, signal strength with the HAT fitted) before Phase 9.
 
 ## Phase 5 — Buttons and LEDs (can happen in parallel with 2–4)
 
