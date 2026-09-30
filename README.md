@@ -2,8 +2,8 @@
 
 A hardware media player built into a 3D-printed Winamp-skin front panel. It plays Spotify Connect and internet radio through a Raspberry Pi 3 Model B, output entirely in digital form (optical S/PDIF) into an external amplifier, and is operated only from the panel's real, removable buttons — no phone app, no web UI.
 
-![Front panel](WinampPanelFront.jpg)
-![Back panel](WinampPanelBack.jpg)
+![Front panel](docs/img/WinampPanelFront.jpg)
+![Back panel](docs/img/WinampPanelBack.jpg)
 
 The panel has two display cutouts (a 1.77" TFT and a single-row-visible LCD) and 8 functional buttons plus 2 LEDs behind the classic Winamp controls (Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat). Everything else on the skin — the volume/balance sliders, EQ/FL labels, the visualizer swirl — is decorative.
 
