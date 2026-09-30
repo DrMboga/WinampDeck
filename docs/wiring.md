@@ -76,7 +76,7 @@ The specific board is a **CJMCU-2317** breakout, per AZ-Delivery's own manual �
 | A0, A1, A2 | GND | gives address `0x20` |
 | RESET | 3.3V, through a **10kΩ pull-up resistor** | not a direct tie — AZ-Delivery's own documented reference wiring, safer than hard-wiring it |
 | ITB/ITA (combined interrupt pin) | GPIO27 (pin 13) | |
-| GPA0–GPA7 (silkscreen `B0/A0`–`B7/A7`) | The 8 buttons, in bit order GPA0→GPA7: Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat | each switches to GND (active-low, internal pull-ups via `GPPU`), with `GPINTEN` enabled so a press raises the interrupt pin — see [Buttons on perfo boards](#buttons-on-perfo-boards). Note the silkscreen's "A0–A7" here means GPIO port A bits 0–7 — unrelated to the I2C address pins of the same name |
+| GPA0–GPA7 (silkscreen `B0/A0`–`B7/A7`) | The 8 buttons, in bit order GPA0→GPA7: Repeat, Shuffle, Eject, Next, Stop, Pause, Play, Previous (chosen to match the perfo-board header order, not the panel's left-to-right order) | each switches to GND (active-low, internal pull-ups via `GPPU`), with `GPINTEN` enabled so a press raises the interrupt pin — see [Buttons on perfo boards](#buttons-on-perfo-boards). Note the silkscreen's "A0–A7" here means GPIO port A bits 0–7 — unrelated to the I2C address pins of the same name |
 | GPB0–GPB1 (silkscreen `B1/A1`, `B2/A2`) | The 2 LEDs: Repeat on GPB0, Shuffle on GPB1, each through a **220Ω current-limiting resistor** to the LED anode (cathode to GND) | 220Ω assumes a typical ~2V-Vf indicator LED (red/yellow/green) driven from the MCP23017's 3.3V output, targeting ~6mA — a conservative, not-too-dim value. Not sourced from AZ-Delivery's manual (it doesn't specify LED part/resistor); if your LEDs are blue/white (~3.0–3.2V Vf), drop to ~100Ω for similar brightness, or check the LED's own datasheet if you have one |
 | GPB2–GPB7 | unused | not connected — only 2 of the 8 GPB lines are wired |
 
@@ -94,11 +94,11 @@ Header pins, left to right:
 
 | Pin | Wired to | MCP23017 pin |
 |---|---|---|
-| 1 | Repeat button | GPA7 |
-| 2 | Shuffle button | GPA6 |
+| 1 | Repeat button | GPA0 |
+| 2 | Shuffle button | GPA1 |
 | 3 | Repeat LED anode, via 220Ω resistor | GPB0 |
 | 4 | Shuffle LED anode, via 220Ω resistor | GPB1 |
-| 5 | Eject button | GPA5 |
+| 5 | Eject button | GPA2 |
 
 PCB1's header has no GND pin of its own — its button and LED-cathode ground comes over from PCB2's GND.
 
@@ -108,12 +108,12 @@ Header pins, left to right:
 
 | Pin | Wired to | MCP23017 pin |
 |---|---|---|
-| 1 | Next button | GPA4 |
-| 2 | Stop button | GPA3 |
-| 3 | Pause button | GPA2 |
+| 1 | Next button | GPA3 |
+| 2 | Stop button | GPA4 |
+| 3 | Pause button | GPA5 |
 | 4 | GND (common for both boards) | VSS / GND |
-| 5 | Play button | GPA1 |
-| 6 | Previous button | GPA0 |
+| 5 | Play button | GPA6 |
+| 6 | Previous button | GPA7 |
 
 ## ST7735 TFT wiring
 
