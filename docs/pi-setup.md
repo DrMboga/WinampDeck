@@ -1,6 +1,6 @@
-# Raspberry Pi 3 Setup — Phases 2–3
+# Raspberry Pi 3 Setup — Phases 2–5
 
-This is a from-scratch setup guide for the Raspberry Pi 3 Model B ([ADR 0005](adr/0005-target-board-pi-3b.md)) running the Digi Pro HAT, taking it from a blank SD card through [Phase 2 and Phase 3](delivery-plan.md#phases-23--wire-in-the-real-engines-can-happen-in-parallel-and-dont-need-the-pi-yet) of the delivery plan: getting the real go-librespot and mpv Engines installed and smoke-tested on the actual board. It assumes default Raspberry Pi OS (64-bit), no monitor/keyboard — everything over SSH.
+This is a from-scratch setup guide for the Raspberry Pi 3 Model B ([ADR 0005](adr/0005-target-board-pi-3b.md)) running the Digi Pro HAT, taking it from a blank SD card through [Phase 2 and Phase 3](delivery-plan.md#phases-23--wire-in-the-real-engines-can-happen-in-parallel-and-dont-need-the-pi-yet) of the delivery plan (getting the real go-librespot and mpv Engines installed and smoke-tested on the actual board), Phase 4 (both Engines sharing the HAT), and [Phase 5](#phase-5--buttons-and-leds) (building the controller on the Pi and bringing up the buttons and LEDs). It assumes default Raspberry Pi OS (64-bit), no monitor/keyboard — everything over SSH.
 
 Steps marked **✅ Already done** are recorded here for completeness (so this doc works as a full rebuild guide too) — skip them on the current board and jump to [Phase 2: go-librespot](#phase-2--go-librespot). Steps marked **☐ To do** are the actual work ahead of you right now.
 
@@ -391,6 +391,185 @@ vcgencmd get_throttled
 - **Long mute:** after a mute of a few minutes, the station's server had dropped the connection (`tls: IO error: End of file` / `Stream ends prematurely` in `mpv.log`), so `aid auto` brought back silence (`demuxer-cache-state` `eof: true`, PCM `closed`, yet `idle-active: false`). Switching to Radio in the controller therefore needs a re-`loadfile`. How long a mute a stream survives is still unmeasured.
 - **`dmesg`:** some `bcm2835-i2s ... FIFO clear timed out: no PCM clock` warnings, only when the last client released the device in an odd state (an Engine killed mid-play, a soak run with no Station loaded). Nothing audible. Treated as harmless; see [ADR 0004](adr/0004-audio-device-sharing.md).
 - **Network:** Wi-Fi dropped partway through (`wpa_supplicant: wlan0: Failed to initiate sched scan`, NetworkManager `link timed out`, no reconnect). The Pi stayed up and both Engines kept running, but it was unreachable until Ethernet was plugged in (new DHCP address). The rest ran over Ethernet with `sudo nmcli radio wifi off`. Turn Wi-Fi back on with `sudo nmcli radio wifi on`.
+
+---
+
+## Phase 5 — buttons and LEDs
+
+**Goal** ([delivery plan](delivery-plan.md#phase-5--buttons-and-leds-can-happen-in-parallel-with-24)): the real `HardwareIO` drives the 8 buttons and 2 LEDs through the MCP23017, and every button and LED does exactly what the Phase 1 tests say. This is the first time the C++ code runs on the Pi, so this section also covers getting the repo onto the Pi and building it there.
+
+The tool for this phase is `winampdeck-panel-test`. It has two modes:
+
+- **Buttons mode** (no arguments) checks the wiring. It prints every press and release, and Shuffle and Repeat toggle their own LED.
+- **Controller mode** (`--controller`) runs the real `PlayerController` on the real buttons and LEDs. The Engines are simulated and print the commands they receive. This is the phase's actual exit criterion.
+
+Neither mode touches go-librespot or mpv, and Safe Shutdown is only printed, never carried out.
+
+### 8.1 Check the MCP23017 answers on I2C
+
+With the MCP23017 and both perfo boards connected per [wiring.md](wiring.md#mcp23017-wiring):
+
+```bash
+i2cdetect -y 1
+# expect: 20 (the MCP23017) and UU at 3b (the WM8804, as before)
+```
+
+If `20` is missing, don't go further. Check VDD/GND, SDA→pin 3, SCL→pin 5, A0/A1/A2 to GND, and RESET pulled up to 3.3V through 10kΩ. A floating RESET keeps the chip silent.
+
+### 8.2 Give the Pi an SSH key for GitHub
+
+Do this once. It lets the Pi clone and pull the repo over SSH (and push, if you ever commit from the Pi).
+
+1. Generate a key on the Pi. Press Enter to accept the default file. A passphrase is optional; with an empty one, `git pull` never prompts.
+   ```bash
+   ssh-keygen -t ed25519 -C "winampdeck-pi"
+   ```
+2. Print the public half and copy the whole line (it starts with `ssh-ed25519`):
+   ```bash
+   cat ~/.ssh/id_ed25519.pub
+   ```
+3. On GitHub: your avatar → **Settings** → **SSH and GPG keys** → **New SSH key**. Title: `winampdeck-pi`, key type: **Authentication Key**. Paste the line and save.
+
+   Alternative: if the Pi should only ever *read* this one repo, add the key as a **deploy key** under the repo's **Settings** → **Deploy keys** instead (leave "Allow write access" unticked). It can then clone and pull WinampDeck and nothing else.
+4. Test it:
+   ```bash
+   ssh -T git@github.com
+   ```
+   The first time, it asks you to confirm GitHub's host key. The ED25519 fingerprint should be `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU` ([GitHub's published fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)). Type `yes`. Expect: `Hi DrMboga! You've successfully authenticated, but GitHub does not provide shell access.`
+5. Only if you'll commit from the Pi, set your identity:
+   ```bash
+   git config --global user.name "Your Name"
+   git config --global user.email "you@example.com"
+   ```
+
+### 8.3 Install the build tools and pigpio
+
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build git
+grep VERSION_CODENAME /etc/os-release
+```
+
+pigpio is packaged in Raspberry Pi OS **Bookworm**, but was dropped in **Trixie**:
+
+- **Bookworm:**
+  ```bash
+  sudo apt install -y libpigpio-dev
+  ```
+- **Trixie:** build it from source. It installs into `/usr/local`, which CMake searches by default:
+  ```bash
+  git clone https://github.com/joan2937/pigpio.git ~/pigpio-src
+  cd ~/pigpio-src && make -j2 && sudo make install && sudo ldconfig
+  cd ~
+  ```
+
+The controller uses pigpio as a library, which needs exclusive access to the GPIO hardware. The `pigpiod` daemon must not run at the same time. If it's installed, stop and disable it:
+
+```bash
+systemctl is-active pigpiod && sudo systemctl disable --now pigpiod
+```
+
+### 8.4 Clone and build
+
+```bash
+cd ~
+git clone git@github.com:DrMboga/WinampDeck.git
+cd WinampDeck
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWINAMPDECK_WITH_PIGPIO=ON
+cmake --build build -j2
+ctest --test-dir build --output-on-failure
+```
+
+- The first `cmake` downloads the pinned header-only dependencies and GoogleTest, so it needs internet access.
+- `-j2` matters. With 1GB of RAM, compiling on all 4 cores at once can run the Pi out of memory. If it still dies with `Killed` / `internal compiler error`, use `-j1`.
+- `ctest` runs the same unit tests CI runs, now on the Pi's own compiler.
+
+To pick up new commits later:
+
+```bash
+cd ~/WinampDeck && git pull && cmake --build build -j2
+```
+
+### 8.5 Buttons mode — check the wiring
+
+pigpio maps the SoC's registers directly, so it needs root:
+
+```bash
+sudo ./build/src/winampdeck-panel-test
+```
+
+Both LEDs blink once, then every press prints a line:
+
+```
+Buttons mode. Blinking both LEDs...
+Press any button; Shuffle and Repeat toggle their LEDs. Ctrl+C quits.
+pressed  Shuffle
+  Shuffle LED on
+released Shuffle (held 143 ms)
+```
+
+Go through this checklist:
+
+- [ ] Both LEDs blinked at startup.
+- [ ] Each of the 8 buttons prints its **own** name: Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat. A wrong name means that button's wire is on the wrong MCP23017 pin. Compare with [wiring.md](wiring.md#buttons-on-perfo-boards).
+- [ ] Each press prints exactly **one** `pressed` and one `released`, even when you tap quickly or press hard. Doubled lines mean contact bounce is getting through the 20ms debounce.
+- [ ] Shuffle toggles the Shuffle LED and Repeat toggles the Repeat LED, not the other way round.
+- [ ] Holding Eject for about 3 seconds reports `held` ≈ 3000 ms. That's the timing the Eject long press will rely on.
+- [ ] Pressing two buttons together reports both.
+- [ ] Ctrl+C prints `Bye.` and both LEDs go off.
+
+**Troubleshooting**
+
+- `pigpio failed to start`: run it with `sudo`, and check that `pigpiod` isn't running (8.3).
+- `MCP23017 at 0x20 didn't answer`: go back to 8.1.
+- LEDs work but no button ever prints anything: the interrupt line isn't arriving. Check the MCP23017's `ITB/ITA` pin → GPIO27 (physical pin 13). To check the buttons without the interrupt, run the tool once and quit it, which leaves the pull-ups configured. Then hold a button and read port A directly:
+  ```bash
+  i2cget -y 1 0x20 0x12   # 0xff with nothing pressed; a cleared bit per held button
+  ```
+- Everything works once and then stops responding: note exactly what you pressed and report it. The interrupt line is probably stuck low.
+
+### 8.6 Controller mode — the Phase 5 exit criterion
+
+```bash
+sudo ./build/src/winampdeck-panel-test --controller
+```
+
+Now each press is followed by what `PlayerController` did about it. That includes Engine commands, LED changes, and what the LCD and TFT would show (Phases 6–7 put those on the real displays):
+
+```
+pressed  Eject
+released Eject
+  LCD: Spotify
+  TFT: Now Playing, Spotify, stopped
+```
+
+The Spotify stand-in echoes each command back as go-librespot would report it. So `shuffle on` is followed a moment later by the Shuffle LED turning on, because LEDs follow the Engine's reported state, not the button. The three Stations are placeholders.
+
+Walk through this checklist in order:
+
+- [ ] **Stopped at startup.** Every button except Eject prints only `pressed`/`released`, and nothing else happens.
+- [ ] **Eject (short) → Spotify.** LCD: `Spotify`.
+- [ ] **Spotify buttons.** Play, Pause, Next and Previous each print their `Spotify:` command. Stop does nothing.
+- [ ] **Spotify Shuffle/Repeat.** Shuffle prints `shuffle on`, then the Shuffle LED turns on. Pressing it again turns it off. Repeat works the same with the Repeat LED. Leave one of them on for the next step.
+- [ ] **Eject → Internet Radio.** `Spotify: pause` (only if you'd pressed Play), `Radio: unmute`, `Radio: tune Station One`, LCD `Station One`. **Both LEDs go off**, because Shuffle has no LED in Radio.
+- [ ] **Radio buttons.** Next/Previous tune the adjacent Station and wrap around the ends. Shuffle tunes a random *other* Station, and its LED stays off. Pause/Play print `Radio: pause`/`resume`.
+- [ ] **Station List.** Repeat opens it: Repeat LED on, TFT `Station List`. Next/Previous move the highlight without tuning anything. Play tunes the highlighted Station and closes the list (LED off). Opening it again and pressing Repeat closes it without tuning.
+- [ ] **Eject → back to Spotify.** `Radio: mute`, and the Shuffle/Repeat LEDs come back as you left them in Spotify.
+- [ ] **Eject held ~2s.** At the 2-second mark, *while still held*, the LCD shows `Shutting down` and `System: Safe Shutdown (not carried out by the panel test)` prints. After that, every button is ignored. Ctrl+C to quit.
+
+### 8.7 Check the buttons don't disturb audio
+
+pigpio normally paces its GPIO sampling with the SoC's PCM block, which is the I2S interface the HAT plays through. `PigpioSession` switches it to the PWM block instead. To confirm that on the real board, start the Engines as in [7.1](#71-start-both-engines-with-log-files), play Spotify on the Deck from your phone, and run either panel-test mode for a minute or two while pressing buttons. Expect no dropouts or clicks, and nothing new in:
+
+```bash
+dmesg | grep -iE "snd|hifiberry|i2s" | tail
+```
+
+Note that the panel test doesn't control the Engines, so the music keeps playing no matter which buttons you press.
+
+### 8.8 Results
+
+☐ To fill in once the checklists above have been run on the real panel.
 
 ---
 

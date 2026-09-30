@@ -8,7 +8,9 @@ add_executable(winampdeck_tests
     radio_test.cpp
     source_switching_test.cpp
     spotify_test.cpp
-    station_list_test.cpp)
+    station_list_test.cpp
+    mcp23017_pins_test.cpp
+    asio_scheduler_test.cpp)
 target_link_libraries(winampdeck_tests PRIVATE
     winampdeck_core
     winampdeck_warnings

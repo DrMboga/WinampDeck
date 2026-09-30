@@ -26,7 +26,7 @@ See:
 - [docs/architecture.md](docs/architecture.md) — how the software works, in plain language
 - [docs/delivery-plan.md](docs/delivery-plan.md) — the phased build-out plan
 - [docs/wiring.md](docs/wiring.md) — the 40-pin header allocation for the HAT, TFT, LCD, and button/LED expander
-- [docs/pi-setup.md](docs/pi-setup.md) — from-scratch Raspberry Pi OS setup and Engine (go-librespot/mpv) smoke-testing
+- [docs/pi-setup.md](docs/pi-setup.md) — from-scratch Raspberry Pi OS setup, Engine (go-librespot/mpv) smoke-testing, and building/running the controller on the Pi
 
 ## Building
 
@@ -40,4 +40,4 @@ On the Pi, add `-DWINAMPDECK_WITH_PIGPIO=ON` to link the real hardware layer aga
 
 ## Status
 
-Phases 0 (project scaffolding) and 1 (core orchestration) are done: the CMake project, pinned dependencies, and CI are in place, and `PlayerController` — the Source/button/Station List/display logic — is implemented and tested against in-memory fakes. No real Engine or hardware adapters exist yet, so the binary doesn't do anything useful on the Pi yet. The hardware panel exists and is wired for buttons/LEDs. Both Engines (go-librespot and mpv) have been smoke-tested on the Pi by hand. See the [delivery plan](docs/delivery-plan.md).
+Phases 0 (project scaffolding) and 1 (core orchestration) are done: the CMake project, pinned dependencies, and CI are in place, and `PlayerController` — the Source/button/Station List/display logic — is implemented and tested against in-memory fakes. Phase 5's pigpio-backed buttons/LEDs adapter is written, with a bring-up tool (`winampdeck-panel-test`) awaiting its first run on the panel. No real Engine adapters exist yet, so the main binary doesn't do anything useful on the Pi yet. The hardware panel exists and is wired for buttons/LEDs. Both Engines (go-librespot and mpv) have been smoke-tested on the Pi by hand. See the [delivery plan](docs/delivery-plan.md).

@@ -17,3 +17,20 @@ target_link_libraries(winampdeck PRIVATE winampdeck_core winampdeck_warnings)
 if(WINAMPDECK_WITH_PIGPIO)
     target_link_libraries(winampdeck PRIVATE WinampDeck::pigpio)
 endif()
+
+# winampdeck_hw: the pigpio-backed panel (buttons/LEDs on the MCP23017). Only
+# builds on the Pi.
+if(WINAMPDECK_WITH_PIGPIO)
+    add_library(winampdeck_hw
+        hw/pigpio_session.cpp
+        hw/pigpio_hardware_io.cpp)
+    target_link_libraries(winampdeck_hw
+        PUBLIC winampdeck_core WinampDeck::asio WinampDeck::pigpio
+        PRIVATE winampdeck_warnings)
+
+    # Phase 5 bring-up tool: exercises the real buttons and LEDs on their own,
+    # or behind PlayerController (see docs/pi-setup.md, Phase 5).
+    add_executable(winampdeck-panel-test
+        tools/panel_test.cpp)
+    target_link_libraries(winampdeck-panel-test PRIVATE winampdeck_hw winampdeck_warnings)
+endif()
