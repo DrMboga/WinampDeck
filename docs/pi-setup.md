@@ -459,8 +459,15 @@ pigpio is packaged in Raspberry Pi OS **Bookworm**, but was dropped in **Trixie*
 - **Trixie:** build it from source. It installs into `/usr/local`, which CMake searches by default:
   ```bash
   git clone https://github.com/joan2937/pigpio.git ~/pigpio-src
-  cd ~/pigpio-src && make -j2 && sudo make install && sudo ldconfig
+  cd ~/pigpio-src && make -j2
+  sudo make install
+  sudo ldconfig
   cd ~
+  ```
+  `sudo make install` is expected to fail at the end with `ModuleNotFoundError: No module named 'distutils'` / `make: *** [Makefile:107: install] Error 1`. That's pigpio's Python bindings: `distutils` was removed from Python 3.12+. The C library, headers and tools are already installed by then, and only the man pages and the `ldconfig` it would have run are skipped, which is why `ldconfig` is run separately above. Confirm the parts the controller needs are there:
+  ```bash
+  ls /usr/local/include/pigpio.h /usr/local/lib/libpigpio.so*
+  # expect: pigpio.h, libpigpio.so, libpigpio.so.1
   ```
 
 The controller uses pigpio as a library, which needs exclusive access to the GPIO hardware. The `pigpiod` daemon must not run at the same time. If it's installed, stop and disable it:
@@ -476,18 +483,19 @@ cd ~
 git clone git@github.com:DrMboga/WinampDeck.git
 cd WinampDeck
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWINAMPDECK_WITH_PIGPIO=ON
-cmake --build build -j2
+cmake --build build -j1
 ctest --test-dir build --output-on-failure
 ```
 
 - The first `cmake` downloads the pinned header-only dependencies and GoogleTest, so it needs internet access.
-- `-j2` matters. With 1GB of RAM, compiling on all 4 cores at once can run the Pi out of memory. If it still dies with `Killed` / `internal compiler error`, use `-j1`.
+- `-j1` matters. With 1GB of RAM, even two compiles at once ran the Pi 3 out of memory (`c++: fatal error: Killed signal terminated program cc1plus` on `dependencies_test.cpp`, 2026-09-30). One at a time works. If a build is killed partway, re-running the same command carries on from where it stopped.
+- To try the panel sooner, `cmake --build build -j1 --target winampdeck-panel-test` builds only the bring-up tool and skips the heavy test files.
 - `ctest` runs the same unit tests CI runs, now on the Pi's own compiler.
 
 To pick up new commits later:
 
 ```bash
-cd ~/WinampDeck && git pull && cmake --build build -j2
+cd ~/WinampDeck && git pull && cmake --build build -j1
 ```
 
 ### 8.5 Buttons mode — check the wiring
@@ -567,9 +575,23 @@ dmesg | grep -iE "snd|hifiberry|i2s" | tail
 
 Note that the panel test doesn't control the Engines, so the music keeps playing no matter which buttons you press.
 
-### 8.8 Results
+### 8.8 Results (2026-09-30)
 
-☐ To fill in once the checklists above have been run on the real panel.
+Run on Raspberry Pi OS **Trixie** (64-bit), with pigpio built from source (8.3).
+
+- **Build:** `-j2` ran out of memory compiling `dependencies_test.cpp` (`cc1plus` killed); `-j1` built everything, and all 80 tests passed on the Pi. 8.4 now uses `-j1`.
+- **Buttons mode:** all 8 buttons reported their own names, with exactly one `pressed`/`released` per press, so no bounce got through the debounce. Shuffle and Repeat toggled their own LEDs. A 4-second Eject hold measured `4044 ms`.
+- **Controller mode:** every item on the 8.6 checklist behaved as the Phase 1 tests specify:
+  - Stopped ignores everything but Eject.
+  - Spotify's Play/Pause/Next/Previous each sent their command, Stop did nothing, and the Shuffle/Repeat LEDs followed the Engine's reported state.
+  - Switching to Radio paused Spotify, tuned the first Station and turned both LEDs off.
+  - Next/Previous wrapped around the Stations, and Shuffle tuned a different Station with its LED staying off.
+  - The Station List opened and closed with Repeat. Play re-tuned only when the highlight differed from the tuned Station, and Shuffle was ignored inside the list.
+  - Returning to Spotify resumed it and restored its LEDs.
+  - Holding Eject fired Safe Shutdown at the 2s mark while still held. Every button was ignored afterwards.
+  - Radio Pause/Play weren't pressed on the panel; the unit tests cover them.
+- **Audio (8.7):** with Spotify playing through the HAT, a few minutes of the panel test and button presses caused no dropouts or clicks, and `dmesg` showed nothing new beyond boot-time lines. Pacing pigpio off PWM instead of PCM keeps it clear of I2S.
+- **Known artifact of the stand-in:** the TFT line shows Spotify as `stopped` even after Play, because the stand-in never reports the Deck as the active Connect device. That's where the TFT gets play status from. It goes away with the real `EngineClient`.
 
 ---
 
