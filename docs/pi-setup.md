@@ -655,6 +655,8 @@ Note the `--madctl`, `--offset` and `--spi-hz` values that worked. They become t
 sudo ./build/src/winampdeck-panel-test --controller   # plus any TFT options from 9.3
 ```
 
+The panel test doesn't talk to go-librespot. Its Spotify is a stand-in that only reacts to the panel's buttons, so Spotify playing from your phone won't show on the TFT. Press **Play on the panel** to see the Spotify screens. Showing real Spotify playback needs the real `EngineClient`, which isn't written yet.
+
 Walk through this checklist in order:
 
 - [ ] **Stopped at startup:** `WINAMP` placeholder, stop indicator, `Press Eject to start`.
@@ -686,10 +688,10 @@ As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play S
   - Eject to Radio: the first Station's logo, the clock from 0:00 and the spectrum.
   - The Station List opened at the tuned Station. Next/Previous moved the highlight, and the tuned Station stayed in white.
   - Play tuned the highlighted Station (*RA Symphonic Rock*) and returned to Now Playing with its logo and the clock restarted.
-- No photo shows the stand-in's demo tracks after Play in Spotify. The same Now Playing drawing, with a downloaded cover, was seen in 9.3's demo cycle.
+- Spotify stayed on `Connect from Spotify app` although the real go-librespot was playing from a phone. That's expected: the panel test's Spotify is a stand-in that only reacts to the panel's Play button, which wasn't pressed. The stand-in's demo tracks weren't looked at, but the same Now Playing drawing, with a downloaded cover, was seen in 9.3's demo cycle.
 - With the console Radio stand-in, no stream title arrives, so line 2 stays empty for Radio. That's expected here; the real `RadioClient` will supply it.
 
-**9.5, audio.** Spotify played through the HAT during the tests, and the sound stayed smooth while the TFT animated.
+**9.5, audio.** The real go-librespot played Spotify through the HAT throughout 9.4, unaffected by the stand-in. The sound stayed smooth while the TFT animated the Radio screens and redrew the Station List.
 
 **Still to see:** the 180° default (`0xA0`), once the module is in the panel.
 
