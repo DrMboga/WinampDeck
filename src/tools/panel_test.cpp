@@ -20,7 +20,7 @@
 //
 // TFT OPTIONS:
 //   --data DIR         where stations.csv and logos/ are (default: data)
-//   --madctl 0xNN      ST7735 rotation and colour order (default: 0x60)
+//   --madctl 0xNN      ST7735 rotation and colour order (default: 0xA0)
 //   --spi-hz N         SPI clock in Hz (default: 16000000)
 //   --brightness N     backlight, 0-255 (default: 255)
 //   --offset COL,ROW   where the visible area starts (default: 0,0)

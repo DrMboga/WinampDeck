@@ -604,7 +604,7 @@ Both modes take the same TFT options:
 
 | Option | Default | What it's for |
 |---|---|---|
-| `--madctl 0xNN` | `0x60` | Rotation, mirroring and colour order (the ST7735's MADCTL register) |
+| `--madctl 0xNN` | `0xA0` | Rotation, mirroring and colour order (the ST7735's MADCTL register) |
 | `--offset COL,ROW` | `0,0` | Where the visible area starts in the controller's memory |
 | `--spi-hz N` | `16000000` | SPI clock |
 | `--brightness N` | `255` | Backlight, 0–255 |
@@ -636,8 +636,8 @@ sudo ./build/src/winampdeck-panel-test --tft
 
 The backlight comes on and the test pattern appears. The console prints how long a full-screen write took.
 
-- [ ] **Orientation.** `TOP LEFT` reads normally in the top-left corner, and `BOTTOM RIGHT` in the bottom right. If not, try the other landscape values in turn: `--madctl 0xA0` (rotated 180° from the default), then `0x20` and `0xE0` (the two mirror images).
-- [ ] **Colours.** The bars read RED, GREEN and BLUE in those colours. If red and blue are swapped, add `0x08` to whichever `--madctl` value was right (`0x60` → `0x68`).
+- [ ] **Orientation.** `TOP LEFT` reads normally in the top-left corner, and `BOTTOM RIGHT` in the bottom right. If not, try the other landscape values in turn: `--madctl 0x60` (rotated 180° from the default), then `0x20` and `0xE0` (the two mirror images).
+- [ ] **Colours.** The bars read RED, GREEN and BLUE in those colours. If red and blue are swapped, add `0x08` to whichever `--madctl` value was right (`0xA0` → `0xA8`).
 - [ ] **Edges.** The white frame is visible on all four edges, with no stray line of noise along any edge. If an edge is missing or noisy, the visible area is offset. Try `--offset 1,2` or `--offset 2,1`, which are common for 128×160 ST7735 modules.
 - [ ] **Speed.** A full-screen write takes about 20–30ms at the default 16MHz. If any pixels are garbled, retry with `--spi-hz 8000000`. If everything is clean, try `24000000` and `32000000` and keep the fastest that stays clean. pigpio derives the clock from the Pi 3's core clock, which changes with load, so leave some margin.
 - [ ] **The real screens**, one every 6 seconds after the first 10 seconds:
@@ -674,7 +674,12 @@ As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play S
 
 ### 9.6 Results
 
-Not run yet.
+**9.3, TFT mode (2026-10-01).** Run with the module on a breadboard, with no options, so with the defaults at the time: `--madctl 0x60`, `--offset 0,0`, 16MHz SPI.
+- Orientation, colour order and all four edges were right first time, so no offset is needed.
+- All four real screens drew correctly: the Stopped placeholder; Spotify with the *Discovery* cover downloaded and converted on the Pi, the clock, the spectrum and the progress bar; Radio with the Station logo and the scrolling Cyrillic stream title; and the Station List with thumbnails, highlight and scrollbar.
+- The module will be mounted in the panel the other way round from the breadboard. So the default MADCTL is now `0xA0`, the same picture turned 180°, and the checks above were run before that change.
+
+**9.4, controller mode:** not run yet.
 
 ---
 

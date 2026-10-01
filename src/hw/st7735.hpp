@@ -20,9 +20,10 @@ public:
         // modules usually run well above that, but start within spec.
         unsigned spiBaud = 16'000'000;
         // MADCTL: MY/MX/MV choose the rotation and mirroring, BGR the colour
-        // order. 0x60 (MX|MV) is landscape; flip MX/MY (0xA0) if it shows
-        // upside down, and toggle 0x08 if red and blue are swapped.
-        std::uint8_t madctl = 0x60;
+        // order. 0xA0 (MY|MV) is landscape for the panel's mounting, with the
+        // module's pin header on the left. 0x60 (MX|MV) is the same turned
+        // 180°, which is how it sat on the breadboard for the 9.3 checks.
+        std::uint8_t madctl = 0xA0;
         // Some panels' visible area doesn't start at the controller's (0, 0).
         int columnOffset = 0;
         int rowOffset = 0;
