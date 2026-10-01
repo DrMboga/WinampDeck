@@ -679,7 +679,19 @@ As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play S
 - All four real screens drew correctly: the Stopped placeholder; Spotify with the *Discovery* cover downloaded and converted on the Pi, the clock, the spectrum and the progress bar; Radio with the Station logo and the scrolling Cyrillic stream title; and the Station List with thumbnails, highlight and scrollbar.
 - The module will be mounted in the panel the other way round from the breadboard. So the default MADCTL is now `0xA0`, the same picture turned 180°, and the checks above were run before that change.
 
-**9.4, controller mode:** not run yet.
+**9.4, controller mode (2026-10-01).** Same build and settings as 9.3.
+- The buttons drove `PlayerController`, and the TFT followed each step:
+  - Stopped: `WINAMP` placeholder and `Press Eject to start`.
+  - Eject to Spotify: `SPOTIFY` placeholder and `Connect from Spotify app`.
+  - Eject to Radio: the first Station's logo, the clock from 0:00 and the spectrum.
+  - The Station List opened at the tuned Station. Next/Previous moved the highlight, and the tuned Station stayed in white.
+  - Play tuned the highlighted Station (*RA Symphonic Rock*) and returned to Now Playing with its logo and the clock restarted.
+- No photo shows the stand-in's demo tracks after Play in Spotify. The same Now Playing drawing, with a downloaded cover, was seen in 9.3's demo cycle.
+- With the console Radio stand-in, no stream title arrives, so line 2 stays empty for Radio. That's expected here; the real `RadioClient` will supply it.
+
+**9.5, audio.** Spotify played through the HAT during the tests, and the sound stayed smooth while the TFT animated.
+
+**Still to see:** the 180° default (`0xA0`), once the module is in the panel.
 
 ---
 
