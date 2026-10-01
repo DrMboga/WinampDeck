@@ -367,6 +367,7 @@ Screen PlayerController::screen() const {
         if (spotifyTrack_) {
             nowPlaying.artist = spotifyTrack_->artist;
             nowPlaying.title = spotifyTrack_->title;
+            nowPlaying.coverUrl = spotifyTrack_->coverUrl;
             nowPlaying.duration = spotifyTrack_->duration;
             nowPlaying.position = spotifyPosition_;
         }

@@ -70,6 +70,17 @@ Bring up SPI communication with the ST7735 using the developer's own proven init
 
 **Exit criteria:** the TFT reflects `PlayerController` state changes correctly and promptly, for both Sources and both Station List states.
 
+**Progress (2026-10-01): software ready, waiting on the TFT wiring.** Everything below builds and is unit-tested off the Pi. The Pi-only driver code is compile-checked but hasn't yet run on the real panel. The checklist for that is [pi-setup.md](pi-setup.md#phase-6--tft).
+- **Rendering is hardware-free.** A new `winampdeck_ui` library draws each frame in memory and hands it to a `ui::Display`, the TFT's seam, in the same way `HardwareIO` is the panel's. It holds the [5×7 font](../src/ui/font5x7.cpp) adopted from the SABA Radio project (ASCII, German, Russian; accented Latin letters fall back to their plain letter, anything else to `?`), a small canvas, and [`TftView`](../src/ui/tft_view.hpp). `TftView` draws both screens and sends only the parts of each frame that changed. Like the core, it's tested in CI against fakes: a `ManualScheduler` and an in-memory display.
+- **Now Playing** shows the cover or logo at 92×92, a play/pause/stop indicator, the clock in big digits, a decorative 15-bar spectrum, Spotify's progress bar with a yellow knob like the panel's, and two text lines (Artist/Title, Station/Stream Title). Lines that are too long scroll, Winamp-style, with `***` between repeats. The clock keeps running between go-librespot's position reports and blinks while paused. For Radio it counts from when the Station was tuned. Animation runs at 20fps, and only while something on screen is moving.
+- **Station List** shows five rows with 21×21 logo thumbnails and a scrollbar. The highlight uses Winamp's playlist blue and sits in the middle row where possible. The tuned Station is in white, and a long highlighted name scrolls.
+- **Landscape, 160×128.** The panel's TFT cutout is wider than it is tall. The ST7735's rotation and colour order (MADCTL) are a start-up setting until checked on the real panel.
+- **The [`St7735`](../src/hw/st7735.hpp) driver** uses pigpio SPI0/CE0 plus manual RS/RES, with a standard init sequence: hardware reset, SLPOUT, COLMOD 16-bit, MADCTL, INVOFF, NORON, clear, DISPON. It writes only the requested window (CASET/RASET/RAMWR). Phase 5's caveat holds: pigpio's DMA is paced by the PWM peripheral, so hardware PWM isn't available. The backlight on GPIO12 uses pigpio's DMA-timed PWM at 800Hz instead.
+- **Station logos** are the SABA Radio project's 92×92 raw little-endian RGB565 `.565` files, now in [data/logos/](../data/logos/). Its station list became [data/stations.csv](../data/stations.csv): 60 Stations in `name,url,logo` form, with the button/frequency columns dropped and duplicates removed. The `stations.csv` parser was pulled forward from Phase 8, because the Station List needs real Stations to be checked.
+- **Spotify covers are converted at runtime.** `SpotifyTrack` and `NowPlayingScreen` gained a `coverUrl`, for the real `EngineClient` to fill from go-librespot's `album_cover_url`. `DeckArtwork` downloads covers on a background thread, decodes the JPEG with stb_image, centre-crops it, scales it to 92×92 by area averaging, and keeps the last 8. See [ADR 0003](adr/0003-cpp-controller-dependencies.md)'s 2026-10-01 update for why this is plain HTTP over IPv4 and adds stb_image.
+- **Tools.** `winampdeck-tft-preview` builds anywhere and renders the screens to `.bmp` files, including a real downloaded cover, to check the look without a Pi. `winampdeck-panel-test` gained `--tft`, which shows a test pattern and then the real screens. Its `--controller` mode now drives the real TFT with the shipped Stations. Its Spotify stand-in now connects on the first Play and plays three demo tracks with real covers, which also fixes Phase 5's "Spotify shows `stopped`" artifact.
+- **Not yet done:** the exit criterion itself, on the real panel.
+
 ## Phase 7 — LCD
 
 Wire the FC-113/PCF8574 backpack, implement the scrolling first-row text ("Artist — Track" / "Station — Stream Title").
@@ -79,6 +90,8 @@ Wire the FC-113/PCF8574 backpack, implement the scrolling first-row text ("Artis
 ## Phase 8 — Config file and stations.csv
 
 Load the plain config file (brightness, LCD scroll speed) and `stations.csv` (name, URL, logo) at startup, and wire them into the relevant adapters/views.
+
+The `stations.csv` parser and the shipped list ([data/](../data/)) already exist from Phase 6. What's left for it here is reading it from its installed location in the controller binary. Brightness goes to `St7735::Config::brightness`.
 
 **Exit criteria:** hand-editing either file and restarting the controller changes behavior exactly as expected — no other way to change either exists, by design.
 

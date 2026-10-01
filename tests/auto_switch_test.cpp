@@ -99,7 +99,7 @@ TEST_F(AutoSwitchTest, TrackChangesWhileSpotifyIsTheSourceDoNothingExtra) {
     engine.emitStartedPlayingHere();
 
     engine.emitPlaying(false);
-    engine.emitTrack({"A", "Next one", "", {}});
+    engine.emitTrack({"A", "Next one", "", {}, ""});
     engine.emitPlaying(true);
 
     EXPECT_TRUE(engine.commands.empty());

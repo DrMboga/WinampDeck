@@ -20,6 +20,11 @@ class AsioScheduler final : public Scheduler {
 public:
     explicit AsioScheduler(asio::io_context& io) : io_(io) {}
 
+    std::chrono::milliseconds now() const override {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch());
+    }
+
     TimerId callAfter(std::chrono::milliseconds delay, std::function<void()> callback) override {
         const TimerId id = nextId_++;
         auto timer = std::make_unique<asio::steady_timer>(io_, delay);

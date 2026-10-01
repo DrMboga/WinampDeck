@@ -1,0 +1,63 @@
+# The Deck's Stations, in Station List order: name, stream URL, and logo
+# (a 92x92 raw little-endian RGB565 file in logos/). No commas in fields.
+name,url,logo
+RA Deutschrock,https://stream.rockantenne.de/deutschrock/stream/mp3,RA_DR.565
+RA Heavy Metal,https://stream.rockantenne.de/heavy-metal/stream/mp3,RA_HM.565
+RA Symphonic Rock,https://s1-webradio.rockantenne.de/symphonic-rock/stream/mp3,RA_SR.565
+Radio Bob Metal,https://streams.radiobob.de/bob-metal/mp3-192/,RB_M.565
+Best of Rock.FM - Hard,https://bestofrockfm.stream.vip/hardrock/aac-64/radioplayer,BOR_HR.565
+Best of Rock.FM - Metal,https://bestofrockfm.stream.vip/metal/aac-64/radioplayer,BOR_M.565
+RA Coversongs,https://stream.rockantenne.de/coversongs/stream/mp3,RA_C.565
+ROCK FM Metal,https://stream.regenbogen2.de/metal/aac-128/homepage,RFM_M.565
+RA Hair Metal,https://stream.rockantenne.de/hair-metal/stream/mp3,RA_HRM.565
+RA Hard Rock,https://stream.rockantenne.de/rock-antenne-hard-rock/stream/mp3,RA_HR.565
+Radio Bob 2000-er rock,https://streams.radiobob.de/2000er/mp3-192/,RB_2000.565
+Radio Bob Metallica,https://streams.radiobob.de/metallica/mp3-192/,RB_MET.565
+Best of rock: Rammstein,https://bestofrockfm.stream.vip/rammstein/aac-64/radioplayer,BOR_RAMM.565
+Radio Bob Iron Maiden,https://streams.radiobob.de/bob-ironmaiden/mp3-192/,RB_IM.565
+Radio Bob Ozzy,https://streams.radiobob.de/ozzyosbourne/mp3-192,RB_OZZY.565
+RA Modern Metal,https://stream.rockantenne.de/modern-metal/stream/mp3,RA_MM.565
+Power Rock 93.9 KTG,https://server01.nkstreaming.com:8103/stream,WKTG.565
+Pure Rock KNAC,https://s6.autopo.st/proxy/ggjdvxin?mp=/stream,KNAG.565
+94.1 WJJO,https://26153.live.streamtheworld.com/WJJOFMAAC.aac,WJJOFM.565
+Pinguin On the rocks,https://streams.pinguinradio.com/PinguinOnTheRocks192.mp3,pinguinrock.565
+Pinguin Aardschok,https://streams.pinguinradio.com/Aardschok192.mp3,pinguinaardschok.565
+Radio Ultra 100.5,https://nashe1.hostingradio.ru/ultra-128.mp3,RadioUltra.565
+99.7 The Blitz,https://d25j5qm9y8ulag.cloudfront.net/574/49ac6850db46b3df097df2fa05e569d3/49ac6850db46b3df097df2fa05e569d3_803176390.aac?sid=48,BLITZ.565
+Eldoradio,http://sc.bce.lu/eldo,Eldoradio.565
+TotalRock,https://s3.citrus3.com:8056/stream,TotalRock.565
+WSOU 89.5 Pirate Radio,https://stream.surfernetwork.com/1fvoynxxaqduv,WSOU.565
+95.1 WSNJ,https://stream.aiir.com/yiwebuefmmwuv,WSNJ.565
+Radio X - London,https://media-ssl.musicradio.com/RadioXLondon,RadioX.565
+NASHE Radio (Moscow),https://nashe1.hostingradio.ru/nashe-128.mp3,Nashe.565
+Radio MAXIMUM,https://maximum.hostingradio.ru/maximum96.aacp,Maximum.565
+Pinguin fiesta,https://s4.radio.co/s9f9f14f9b/listen,PinguinFiesta.565
+Pinguin groove,https://samcloud.spacial.com/api/listen?sid=98587&m=sc&rid=174412,PinguinGroove.565
+Pinguin vintage,https://samcloud.spacial.com/api/listen?sid=131111&rid=275910&m=sc,PinguinVintage.565
+Pinguin pop,https://samcloud.spacial.com/api/listen?sid=98586&m=sc&rid=174409,PinguinPop.565
+Pinguin classic,https://streams.pinguinradio.com/PinguinClassics192.mp3,PinguinClassic.565
+The Beatles Channel,http://listen.181fm.com/181-beatles_128k.mp3,RadioBeatles.565
+181.FM Power (Top 40),http://listen.181fm.com/181-power_128k.mp3,Radio181.565
+Biggest LIttle Radio,https://26343.live.streamtheworld.com/SAM06AAC012_SC,BiggestLittleRadio.565
+SUNSHINE LIVE,https://stream.sunshine-live.de/live/mp3-192/homepage/,SunshineLive.565
+RTL Das Beste der 80er,https://stream.104.6rtl.com/rtl-80er/mp3-128/,RTL.565
+L'essentiel Radio,https://lessentielradio.ice.infomaniak.ch/lessentielradio-128.mp3,Lesentinel.565
+Radio LRB,http://zeus.lrb.lu:8000/lrb.live,LRB.565
+Radio Frei,http://streaming.fueralle.org:8000/Radio-F.R.E.I,FREI.565
+Deutschlandfunk Kultur,https://st02.sslstream.dlf.de/dlf/02/128/mp3/stream.mp3,DRK.565
+F 94.5 - Made in Germany,https://edge81.streamonkey.net/fhn-radiofmadeingermany,RadioF.565
+Radio Seefunk,https://webradio.radio-seefunk.de/live64,Seefunk.565
+Radio 91.2,https://stream.lokalradio.nrw/4453z68,RadioDortmund.565
+ENERGY Berlin,https://frontend.streamonkey.net/energy-berlin/stream/mp3,Energy.565
+AB Live,https://stream.antenne.de/antenne/stream/mp3,AB_Live.565
+AB 90er Party,https://stream.antenne.de/antenne-bayern-90er-party/stream/mp3,AB_90Party.565
+AB 90er Hits,https://stream.antenne.de/90er-hits/stream/mp3,AB_90Hits.565
+AB 2000er Hits,https://stream.antenne.de/2000er-hits/stream/mp3,AB_2000Hits.565
+AB Greatest Hits,https://stream.antenne.de/greatest-hits/stream/mp3,AB_GreatestHits.565
+AB Workout Mix,https://stream.antenne.de/workout-hits/stream/mp3,AB_Workout.565
+AB Top 40,https://stream.antenne.de/top-40/stream/mp3,AB_Top40.565
+AB Dance XXL,https://stream.antenne.de/dance-xxl/stream/mp3,AB_DanceXXL.565
+AB Relax,https://stream.antenne.de/relax/stream/mp3,AB_Relax.565
+AB Weihnachts-Classics,https://stream.antenne.de/oldie-antenne-event/stream/mp3,AB_Weinachts.565
+Europa Plus,https://ep128.hostingradio.ru:8030/ep128,EuropaPlus.565
+DFM Radio 101.2 FM,https://dfm.hostingradio.ru/dfm96.aacp,DFM.565

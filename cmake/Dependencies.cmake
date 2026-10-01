@@ -62,6 +62,20 @@ FetchContent_Declare(json
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(json)
 
+# --- stb_image -----------------------------------------------------------------
+# Decodes Spotify's JPEG album covers for the TFT (Phase 6). stb has no
+# releases, so this is pinned to a master commit. Its implementation is
+# compiled once, in src/adapters/stb_image.cpp.
+FetchContent_Declare(stb
+    URL https://github.com/nothings/stb/archive/2c980bb59875b0d32144a71867fbdebb2f77cd20.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR _no_cmake)
+FetchContent_MakeAvailable(stb)
+
+add_library(winampdeck_stb INTERFACE)
+add_library(WinampDeck::stb ALIAS winampdeck_stb)
+target_include_directories(winampdeck_stb SYSTEM INTERFACE ${stb_SOURCE_DIR})
+
 # --- pigpio ----------------------------------------------------------------------
 # A system library installed on the Pi (see docs/pi-setup.md), not fetched: it
 # drives the SoC's peripherals directly and is useless on any other machine.

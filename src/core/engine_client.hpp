@@ -10,6 +10,8 @@ struct SpotifyTrack {
     std::string title;
     std::string album;
     std::chrono::milliseconds duration{0};
+    // The album cover image (go-librespot's `album_cover_url`), or empty.
+    std::string coverUrl;
 
     bool operator==(const SpotifyTrack&) const = default;
 };

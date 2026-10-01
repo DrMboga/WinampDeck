@@ -97,6 +97,8 @@ public:
 // Timers that only fire when the test advances time.
 class ManualScheduler final : public Scheduler {
 public:
+    std::chrono::milliseconds now() const override { return now_; }
+
     TimerId callAfter(std::chrono::milliseconds delay, std::function<void()> callback) override {
         const TimerId id = nextId_++;
         timers_.emplace(id, Timer{now_ + delay, std::move(callback)});

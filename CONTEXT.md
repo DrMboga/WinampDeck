@@ -28,6 +28,10 @@ _Avoid_: power off, halt
 A named internet radio stream the Deck can tune to, with an associated logo image. Maintained as a fixed, hand-edited list, not managed through the Deck itself.
 _Avoid_: channel, preset
 
+**Now Playing**:
+The TFT's normal screen mode: what the audible Source is playing (album cover or Station logo, play status, elapsed time, track or stream text) under the Winamp-style skin, with its decorative spectrum.
+_Avoid_: main screen, home screen
+
 **Station List**:
 The TFT screen mode showing a scrollable list of Stations to browse, opened and closed with Repeat while Internet Radio is the Source.
 _Avoid_: menu, station menu

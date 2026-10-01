@@ -80,7 +80,8 @@ void describe(std::ostream& out, const Screen& screen) {
 
 }  // namespace
 
-PigpioHardwareIO::PigpioHardwareIO(asio::io_context& io) : io_(io), debounce_(io) {
+PigpioHardwareIO::PigpioHardwareIO(asio::io_context& io, ui::TftView* tft)
+    : io_(io), tft_(tft), debounce_(io) {
     const int handle = i2cOpen(kI2cBus, kMcp23017Address, 0);
     if (handle < 0) {
         throw std::runtime_error("Can't open I2C bus 1 (pigpio error " + std::to_string(handle) +
@@ -146,6 +147,10 @@ void PigpioHardwareIO::showLcdText(const std::string& text) {
 }
 
 void PigpioHardwareIO::showScreen(const Screen& screen) {
+    if (tft_ != nullptr) {
+        tft_->show(screen);
+        return;
+    }
     std::cout << "  TFT: ";
     describe(std::cout, screen);
     std::cout << std::endl;

@@ -4,10 +4,34 @@
 # testable in plain CI.
 add_library(winampdeck_core
     core/player_controller.cpp
+    core/stations_csv.cpp
     core/version.cpp)
 target_include_directories(winampdeck_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(winampdeck_core PRIVATE WINAMPDECK_VERSION="${PROJECT_VERSION}")
 target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings)
+
+# winampdeck_ui: what the TFT shows, drawn in memory (font, canvas, the Now
+# Playing and Station List views). Hardware-free like the core, so it's tested
+# in CI too; the pixels reach the glass through the ui::Display interface.
+add_library(winampdeck_ui
+    ui/canvas.cpp
+    ui/display.cpp
+    ui/font5x7.cpp
+    ui/image.cpp
+    ui/tft_view.cpp)
+target_link_libraries(winampdeck_ui
+    PUBLIC winampdeck_core
+    PRIVATE winampdeck_warnings)
+
+# winampdeck_adapters: production adapters that don't need the Pi (the Asio
+# scheduler, album covers downloaded over HTTP, Station logos from disk).
+add_library(winampdeck_adapters
+    adapters/cover_art.cpp
+    adapters/deck_artwork.cpp
+    adapters/stb_image.cpp)
+target_link_libraries(winampdeck_adapters
+    PUBLIC winampdeck_ui WinampDeck::asio
+    PRIVATE winampdeck_warnings WinampDeck::httplib WinampDeck::stb)
 
 # winampdeck: the controller binary that runs on the Pi, wiring the core to the
 # real adapters (go-librespot, mpv, pigpio).
@@ -18,18 +42,24 @@ if(WINAMPDECK_WITH_PIGPIO)
     target_link_libraries(winampdeck PRIVATE WinampDeck::pigpio)
 endif()
 
-# winampdeck_hw: the pigpio-backed panel (buttons/LEDs on the MCP23017). Only
-# builds on the Pi.
+# Renders the TFT's screens to .bmp files, to check the look without a Pi.
+add_executable(winampdeck-tft-preview
+    tools/tft_preview.cpp)
+target_link_libraries(winampdeck-tft-preview PRIVATE winampdeck_adapters winampdeck_warnings)
+
+# winampdeck_hw: the pigpio-backed panel (buttons/LEDs on the MCP23017, the
+# ST7735 TFT). Only builds on the Pi.
 if(WINAMPDECK_WITH_PIGPIO)
     add_library(winampdeck_hw
         hw/pigpio_session.cpp
-        hw/pigpio_hardware_io.cpp)
+        hw/pigpio_hardware_io.cpp
+        hw/st7735.cpp)
     target_link_libraries(winampdeck_hw
-        PUBLIC winampdeck_core WinampDeck::asio WinampDeck::pigpio
+        PUBLIC winampdeck_adapters WinampDeck::asio WinampDeck::pigpio
         PRIVATE winampdeck_warnings)
 
-    # Phase 5 bring-up tool: exercises the real buttons and LEDs on their own,
-    # or behind PlayerController (see docs/pi-setup.md, Phase 5).
+    # Bring-up tool: exercises the real buttons, LEDs and TFT on their own, or
+    # behind PlayerController (see docs/pi-setup.md, Phases 5 and 6).
     add_executable(winampdeck-panel-test
         tools/panel_test.cpp)
     target_link_libraries(winampdeck-panel-test PRIVATE winampdeck_hw winampdeck_warnings)

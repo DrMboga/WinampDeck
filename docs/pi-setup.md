@@ -593,6 +593,89 @@ Run on Raspberry Pi OS **Trixie** (64-bit), with pigpio built from source (8.3).
 - **Audio (8.7):** with Spotify playing through the HAT, a few minutes of the panel test and button presses caused no dropouts or clicks, and `dmesg` showed nothing new beyond boot-time lines. Pacing pigpio off PWM instead of PCM keeps it clear of I2S.
 - **Known artifact of the stand-in:** the TFT line shows Spotify as `stopped` even after Play, because the stand-in never reports the Deck as the active Connect device. That's where the TFT gets play status from. It goes away with the real `EngineClient`.
 
+## Phase 6 — TFT
+
+**Goal** ([delivery plan](delivery-plan.md#phase-6--tft)): the ST7735 shows `PlayerController`'s screens, Now Playing and the Station List, correctly and promptly for both Sources. The tool is `winampdeck-panel-test` again, with two new things:
+
+- **TFT mode** (`--tft`) draws a test pattern for checking the panel's orientation, colour order and edges. After 10 seconds it cycles through the real screens. It doesn't use the buttons.
+- **Controller mode** (`--controller`) now draws on the real TFT, with the 60 Stations from `data/stations.csv`. The Spotify stand-in connects on the first Play and plays three demo tracks with real album covers. That needs internet access, and without it the screen shows a placeholder instead of the cover.
+
+Both modes take the same TFT options:
+
+| Option | Default | What it's for |
+|---|---|---|
+| `--madctl 0xNN` | `0x60` | Rotation, mirroring and colour order (the ST7735's MADCTL register) |
+| `--offset COL,ROW` | `0,0` | Where the visible area starts in the controller's memory |
+| `--spi-hz N` | `16000000` | SPI clock |
+| `--brightness N` | `255` | Backlight, 0–255 |
+| `--data DIR` | `data` | Where `stations.csv` and `logos/` are |
+
+Run the tool from the repo root so `data` is found.
+
+### 9.1 Before powering on
+
+Wire the TFT per [wiring.md](wiring.md#st7735-tft-wiring). Check that **LEDA goes to GPIO12, not 5V**, because 5V can damage the screen.
+
+SPI doesn't need enabling in `config.txt`. pigpio drives the SPI0 block's registers itself, the same way it drives I2C, so leave `dtparam=spi=on` commented out and the kernel's SPI driver won't claim the pins.
+
+### 9.2 Build
+
+```bash
+cd ~/WinampDeck && git pull
+cmake --build build -j1 --target winampdeck-panel-test   # the tool first
+cmake --build build -j1 && ctest --test-dir build --output-on-failure
+```
+
+The build re-runs CMake, which downloads the new stb_image dependency, so the Pi needs internet access for it.
+
+### 9.3 TFT mode: orientation, colours, edges
+
+```bash
+sudo ./build/src/winampdeck-panel-test --tft
+```
+
+The backlight comes on and the test pattern appears. The console prints how long a full-screen write took.
+
+- [ ] **Orientation.** `TOP LEFT` reads normally in the top-left corner, and `BOTTOM RIGHT` in the bottom right. If not, try the other landscape values in turn: `--madctl 0xA0` (rotated 180° from the default), then `0x20` and `0xE0` (the two mirror images).
+- [ ] **Colours.** The bars read RED, GREEN and BLUE in those colours. If red and blue are swapped, add `0x08` to whichever `--madctl` value was right (`0x60` → `0x68`).
+- [ ] **Edges.** The white frame is visible on all four edges, with no stray line of noise along any edge. If an edge is missing or noisy, the visible area is offset. Try `--offset 1,2` or `--offset 2,1`, which are common for 128×160 ST7735 modules.
+- [ ] **Speed.** A full-screen write takes about 20–30ms at the default 16MHz. If any pixels are garbled, retry with `--spi-hz 8000000`. If everything is clean, try `24000000` and `32000000` and keep the fastest that stays clean. pigpio derives the clock from the Pi 3's core clock, which changes with load, so leave some margin.
+- [ ] **The real screens**, one every 6 seconds after the first 10 seconds:
+  - Stopped: `WINAMP` placeholder, `Press Eject to start`.
+  - Spotify: the *Discovery* cover, clock running from 1:15, spectrum moving, progress bar.
+  - Radio: the first Station's logo, with the stream title scrolling.
+  - Station List: logo thumbnails, with the 4th Station highlighted in blue.
+- [ ] Ctrl+C turns the backlight off and blanks the screen.
+
+Note the `--madctl`, `--offset` and `--spi-hz` values that worked. They become the defaults in `St7735::Config`, so these flags won't be needed afterwards.
+
+### 9.4 Controller mode: the Phase 6 exit criterion
+
+```bash
+sudo ./build/src/winampdeck-panel-test --controller   # plus any TFT options from 9.3
+```
+
+Walk through this checklist in order:
+
+- [ ] **Stopped at startup:** `WINAMP` placeholder, stop indicator, `Press Eject to start`.
+- [ ] **Eject → Spotify:** `SPOTIFY` placeholder, `Connect from Spotify app`.
+- [ ] **Play:** the stand-in connects. Within a second or two the *Discovery* cover replaces the placeholder. The artist and title show, the clock counts up from 0:00, the spectrum moves and the progress bar fills.
+- [ ] **Pause:** pause indicator. The clock freezes and blinks, and the spectrum falls to nothing.
+- [ ] **Next/Previous:** the cover and text change. The long *Get Lucky* title scrolls after a moment. Going back to a track seen before shows its cover immediately, because covers are cached.
+- [ ] **Eject → Radio:** the first Station's logo and name, with the clock from 0:00.
+- [ ] **Next/Previous/Shuffle:** the logo and name follow the tuned Station, and the clock restarts at 0:00 each time.
+- [ ] **Repeat:** the Station List opens with the tuned Station highlighted. Next/Previous move the highlight, the list scrolls to keep it in the middle row, and a long highlighted name scrolls. Play tunes it and returns to Now Playing. Repeat closes the list without tuning.
+- [ ] **Promptness:** every press shows on the screen without noticeable lag, including fast repeated Next presses in the Station List.
+- [ ] **Eject held ~2s:** `Shutting down` on the LCD line of the console. The TFT stays on its last screen.
+
+### 9.5 Check the TFT doesn't disturb audio
+
+As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play Spotify on the Deck from your phone, and leave `--tft` cycling through its screens for a few minutes. The spectrum animates the whole time, so SPI and the backlight PWM are busy throughout. Expect no dropouts or clicks, and nothing new in `dmesg | grep -iE "snd|hifiberry|i2s" | tail`. Also check `top`: the panel test should use only a few percent CPU while animating.
+
+### 9.6 Results
+
+Not run yet.
+
 ---
 
 ## What's next

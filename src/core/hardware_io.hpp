@@ -21,6 +21,7 @@ struct NowPlayingScreen {
     std::string title;    // Spotify: track title. Radio: stream title.
     std::string station;  // Radio only.
     std::string logo;     // Radio only: the Station's logo filename.
+    std::string coverUrl; // Spotify only: the album cover, fetched by the TFT view.
     std::chrono::milliseconds position{0};  // Spotify only.
     std::chrono::milliseconds duration{0};  // Spotify only.
 

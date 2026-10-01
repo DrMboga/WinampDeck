@@ -97,7 +97,7 @@ TEST_F(SpotifyTest, LcdShowsArtistAndTrack) {
     enterSpotify();
 
     engine.emitStartedPlayingHere();
-    engine.emitTrack({"Nullsleep", "Silicon Lust", "Electric Heart", 180s});
+    engine.emitTrack({"Nullsleep", "Silicon Lust", "Electric Heart", 180s, ""});
 
     EXPECT_EQ(hw.lcd, "Nullsleep — Silicon Lust");
 }
@@ -105,7 +105,7 @@ TEST_F(SpotifyTest, LcdShowsArtistAndTrack) {
 TEST_F(SpotifyTest, LcdShowsJustTheTitleWhenThereIsNoArtist) {
     enterSpotify();
 
-    engine.emitTrack({"", "Episode 12", "", 3600s});
+    engine.emitTrack({"", "Episode 12", "", 3600s, ""});
 
     EXPECT_EQ(hw.lcd, "Episode 12");
 }
@@ -113,7 +113,7 @@ TEST_F(SpotifyTest, LcdShowsJustTheTitleWhenThereIsNoArtist) {
 TEST_F(SpotifyTest, LcdFallsBackToSpotifyWhenNothingIsLoaded) {
     enterSpotify();
     engine.emitStartedPlayingHere();
-    engine.emitTrack({"Nullsleep", "Silicon Lust", "Electric Heart", 180s});
+    engine.emitTrack({"Nullsleep", "Silicon Lust", "Electric Heart", 180s, ""});
 
     engine.emitActive(false);
 
@@ -123,7 +123,8 @@ TEST_F(SpotifyTest, LcdFallsBackToSpotifyWhenNothingIsLoaded) {
 TEST_F(SpotifyTest, ScreenShowsTrackProgressAndStatus) {
     enterSpotify();
     engine.emitStartedPlayingHere();
-    engine.emitTrack({"Nullsleep", "Silicon Lust", "Electric Heart", 180s});
+    engine.emitTrack({"Nullsleep", "Silicon Lust", "Electric Heart", 180s,
+                      "https://i.scdn.co/image/ab67616d0000b273cover"});
     engine.emitPosition(42s);
 
     NowPlayingScreen expected;
@@ -131,6 +132,7 @@ TEST_F(SpotifyTest, ScreenShowsTrackProgressAndStatus) {
     expected.status = PlaybackStatus::Playing;
     expected.artist = "Nullsleep";
     expected.title = "Silicon Lust";
+    expected.coverUrl = "https://i.scdn.co/image/ab67616d0000b273cover";
     expected.position = 42s;
     expected.duration = 180s;
     EXPECT_EQ(hw.nowPlaying(), expected);
@@ -142,10 +144,10 @@ TEST_F(SpotifyTest, ScreenShowsTrackProgressAndStatus) {
 TEST_F(SpotifyTest, ANewTrackStartsFromZero) {
     enterSpotify();
     engine.emitStartedPlayingHere();
-    engine.emitTrack({"A", "One", "", 100s});
+    engine.emitTrack({"A", "One", "", 100s, ""});
     engine.emitPosition(50s);
 
-    engine.emitTrack({"B", "Two", "", 200s});
+    engine.emitTrack({"B", "Two", "", 200s, ""});
 
     EXPECT_EQ(hw.nowPlaying().position, 0s);
     EXPECT_EQ(hw.nowPlaying().duration, 200s);
