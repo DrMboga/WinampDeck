@@ -128,7 +128,9 @@ This specific AZ-Delivery board has an onboard 3.3V regulator, so per their own 
 | CS | GPIO8 / CE0 (pin 24) | SPI0 chip select |
 | RES | GPIO24 (pin 18) | hard reset |
 | RS (labelled "REG. SEL." in AZ-Delivery's manual) | GPIO23 (pin 16) | command/data select |
-| LEDA | GPIO12 / PWM0 (pin 32) | backlight — PWM for the config file's brightness setting; a direct 3.3V tie also works if dimming isn't needed, but never 5V — that can damage the screen |
+| LEDA | GPIO12 / PWM0 (pin 32) | backlight — PWM for the config file's brightness setting; a direct 3.3V tie also works if dimming isn't needed, but never 5V — that can damage the screen. See the note below the table |
+
+**Backlight brightness (checked 2026-10-01).** GPIO12 drives LEDA directly, with no transistor. A GPIO pin can only supply a few mA (8mA at the Pi's default drive setting), so this limits the backlight current. Full PWM (brightness 255) is visibly dimmer than tying LEDA straight to 3.3V. The dimmer level was preferred and kept. Because the pin itself runs the backlight, it is working at its current limit. If more brightness is ever wanted, switch the backlight with a transistor (e.g. an NPN or a logic-level P-MOSFET) driven from GPIO12, rather than raising the pin's drive strength. That setting applies to GPIO0–27 together, including the HAT's I2S pins.
 
 ## LCD backpack wiring
 

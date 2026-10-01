@@ -693,7 +693,9 @@ As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play S
 
 **9.5, audio.** The real go-librespot played Spotify through the HAT throughout 9.4, unaffected by the stand-in. The sound stayed smooth while the TFT animated the Radio screens and redrew the Station List.
 
-**Still to see:** the 180° default (`0xA0`), once the module is in the panel.
+**After the results above (2026-10-01):**
+- **Rotation:** rebuilt with the new 180° default (`0xA0`), and the screen reads the right way up as the module will sit in the panel. No `--madctl`, `--offset` or `--spi-hz` flags are needed any more.
+- **Backlight:** at the default brightness (255) the PWM is fully on, so that's the most GPIO12 can give. For comparison, LEDA was moved straight to 3.3V. That was visibly brighter, because a GPIO pin can only supply a few mA (8mA at the default drive setting) and that limits the backlight current. Even so, the GPIO12 PWM brightness looked better, so LEDA stays on GPIO12, with no transistor. See [wiring.md](wiring.md#st7735-tft-wiring).
 
 ---
 
