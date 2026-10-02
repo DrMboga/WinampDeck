@@ -89,7 +89,8 @@ TEST_F(LcdViewTest, ScrollingComesRoundWithTheSeparator) {
 
 TEST_F(LcdViewTest, TheSameTextAgainDoesntRestartTheScroll) {
     view.show("Daft Punk — One More Time");
-    scheduler.advance(LcdView::kScrollDelay + kStep);
+    scheduler.advance(LcdView::kScrollDelay);
+    scheduler.advance(kStep);
     const auto writes = lcd.rows.size();
     view.show("Daft Punk — One More Time");
     EXPECT_EQ(lcd.rows.size(), writes);
@@ -99,7 +100,8 @@ TEST_F(LcdViewTest, TheSameTextAgainDoesntRestartTheScroll) {
 
 TEST_F(LcdViewTest, NewTextStartsFromTheBeginning) {
     view.show("Daft Punk — One More Time");
-    scheduler.advance(LcdView::kScrollDelay + kStep * 3);
+    scheduler.advance(LcdView::kScrollDelay);
+    scheduler.advance(kStep);
     view.show("Radiohead — Paranoid Android");
     EXPECT_EQ(lcd.rows.back(), "Radiohead - Para");
 
