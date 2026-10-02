@@ -783,7 +783,7 @@ The LCD shares I2C1 with the MCP23017. Leave a long line scrolling in controller
 
 **10.4, controller mode.** `PlayerController` drove the real buttons, LEDs, TFT and LCD together. Both displays showed the right information for each step, and every button press was handled correctly.
 
-**10.5, buttons and audio.** The buttons stayed responsive with the LCD on the shared bus (10.4). The audio check, with Spotify playing while the LCD scrolls, hasn't been run yet.
+**10.5, buttons and audio.** The buttons stayed responsive with the LCD on the shared bus (10.4). Controller mode was run with both displays active while the real go-librespot played Spotify from a phone through the HAT, and the sound stayed smooth throughout. `dmesg` wasn't checked.
 
 **Decisions:**
 - **Cyrillic stays transliterated.** A00 has no Cyrillic. Drawing it with the HD44780's 8 user-defined characters, using the TFT font's glyphs, was considered and turned down. Lowercase Russian often needs more than 8 different custom letters in a 16-character window, so some letters would still fall back. Transliteration is predictable. Another way to get real Cyrillic would be a 1602 module with a Cyrillic ROM.
