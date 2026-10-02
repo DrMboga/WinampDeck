@@ -34,13 +34,16 @@ add_library(winampdeck_adapters
     adapters/cover_art.cpp
     adapters/deck_artwork.cpp
     adapters/go_librespot_client.cpp
+    adapters/librespot_event_stream.cpp
     adapters/librespot_events.cpp
+    adapters/librespot_rest.cpp
     adapters/mpv_client.cpp
     adapters/stb_image.cpp
     adapters/system_poweroff.cpp)
 target_link_libraries(winampdeck_adapters
-    PUBLIC winampdeck_ui WinampDeck::asio WinampDeck::websocketpp
-    PRIVATE winampdeck_warnings WinampDeck::httplib WinampDeck::stb nlohmann_json::nlohmann_json)
+    PUBLIC winampdeck_ui WinampDeck::asio
+    PRIVATE winampdeck_warnings WinampDeck::httplib WinampDeck::websocketpp WinampDeck::stb
+            nlohmann_json::nlohmann_json)
 
 # Renders the TFT's screens to .bmp files, to check the look without a Pi.
 add_executable(winampdeck-tft-preview
