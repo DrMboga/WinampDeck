@@ -104,6 +104,23 @@ The `stations.csv` parser and the shipped list ([data/](../data/)) already exist
 
 **Exit criteria:** hand-editing either file and restarting the controller changes behavior exactly as expected — no other way to change either exists, by design.
 
+**Scope, decided 2026-10-02:** Phase 8 also writes the real `EngineClient` and `RadioClient` and a real `winampdeck` binary. The exit criterion needs a controller to restart, and `main.cpp` was still a placeholder. So this phase also closes Phases 2–3's open exit criteria: Spotify and Radio controlled through `PlayerController` by the real adapters.
+
+**Progress (2026-10-02): software written, not yet run on the Pi.** CI passes (GCC 12 and 14, 182 tests), and the Pi-only files compile against pigpio's header. Decisions: [ADR 0006](adr/0006-config-files-and-engine-processes.md). Checklist: [pi-setup.md](pi-setup.md#phase-8--config-files-and-the-real-controller).
+- **[`DeckConfig`](../src/core/deck_config.hpp)** reads `/etc/winampdeck/config.json`: `tft_brightness` (0–100, percent) and `lcd_scroll_ms` (50–5000). Comments are allowed. Unknown keys, wrong types and out-of-range values stop the controller with a message naming the setting. A missing file gives the defaults. The shipped file is [data/config.json](../data/config.json).
+- **[`GoLibrespotClient`](../src/adapters/go_librespot_client.hpp)** takes events from `/events` (mapped in [`librespot_events`](../src/adapters/librespot_events.hpp), tested against payloads taken from go-librespot's source) and fetches `GET /status` on every connect. REST commands go out in order on a worker thread. It reconnects while go-librespot is away.
+- **[`MpvClient`](../src/adapters/mpv_client.hpp)** applies Phase 4's findings: it mutes with `aid no`, reloads the Station on every unmute, defers a load while muted, and selects the track before `loadfile`. The stream title is mpv's ICY title. It reconnects and replays its state. It's tested against a fake mpv on a Unix socket.
+- **`SystemPoweroff`** carries out Safe Shutdown with `systemctl poweroff`.
+- **`winampdeck`** wires it all to the real panel. It's built only with pigpio.
+
+**The Pi can't build it comfortably.** Compiling the first version of `go_librespot_client.cpp` ran the Pi 3 out of memory (`Killed signal terminated program cc1plus`): cpp-httplib and websocketpp in one file peaked at 1.28 GB with `-O2 -g`. It was split into [`LibrespotRest`](../src/adapters/librespot_rest.hpp) and [`LibrespotEventStream`](../src/adapters/librespot_event_stream.hpp), each hiding its library behind its header, and now no file peaks above 760 MB. The test file `dependencies_test.cpp` still needs about 1.28 GB.
+
+**Next: build on the PC and deploy to the Pi.** This replaces `git pull` and `cmake --build` on the Pi:
+1. **Cross-build in Docker.** A Debian Trixie container with `crossbuild-essential-arm64` matches the Pi: Raspberry Pi OS Trixie, aarch64, GCC 14.2, glibc 2.41, as checked on 2026-10-02. pigpio is cross-built from the commit the Pi has (`c33738a`), only to link against; at runtime the binary uses the Pi's own `/usr/local/lib/libpigpio.so.1`. The build uses the same `-DWINAMPDECK_WITH_PIGPIO=ON` configuration as on the Pi.
+2. **Tests stay native.** The hardware-free suite runs in an amd64 container on the PC, as CI does. The Pi only runs the controller and the panel test.
+3. **A deploy script** builds, prints the commit it built, and copies `winampdeck`, `winampdeck-panel-test` and `data/` to the Pi with `rsync` over SSH, as `pi@WinampDeck` with key authentication. `sudo` on the Pi asks for a password, so the script copies into the home directory. Installing into `/etc/winampdeck` stays a manual `sudo` step, or runs over `ssh -t`.
+4. Then the rest of [the checklist](pi-setup.md#phase-8--config-files-and-the-real-controller), from 11.2.
+
 ## Phase 9 — Full integration on the assembled panel
 
 Everything above, running together on the real Pi, HAT, and panel — inside the enclosure once it's built. Soak-test it: leave it running for an extended period, switching Sources, connecting different Spotify accounts, browsing stations, to surface anything that only shows up over time (event-stream reconnects, memory growth, and the like).

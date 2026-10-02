@@ -795,13 +795,26 @@ The LCD shares I2C1 with the MCP23017. Leave a long line scrolling in controller
 
 The controller connects to go-librespot on `localhost:3678` and to mpv's socket (`--mpv-socket`, default `/tmp/mpv-socket`). It doesn't start either one; until Phase 10 they run in tmux as in Phase 4. Either Engine can start before or after the controller, and either can be restarted, because the controller keeps retrying.
 
+**Network (2026-10-02):** Wi-Fi kept dropping, so the Pi now runs on Ethernet only, with Wi-Fi turned off in firmware: `dtoverlay=disable-wifi` in `/boot/firmware/config.txt`. To bring it back, remove that line and reboot. The router gives it the name `WinampDeck`, so `ssh pi@WinampDeck` works from the PC, with key authentication.
+
 ### 11.1 Build
+
+**Status (2026-10-02): the Pi ran out of memory building the controller.** `go_librespot_client.cpp` peaked at 1.28 GB, and the compiler was killed. The file has been split since then (see the [delivery plan](delivery-plan.md#phase-8--config-file-and-stationscsv)), but the plan is to stop building on the Pi altogether: cross-build on the PC in Docker and copy the binaries over. That's the next step to set up. Until it exists, building on the Pi still works:
 
 ```bash
 cd ~/WinampDeck && git pull
 cmake --build build -j1 --target winampdeck   # the controller first
 cmake --build build -j1 && ctest --test-dir build --output-on-failure
 ```
+
+The full build also compiles `dependencies_test.cpp`, which needs about 1.28 GB and may be killed the same way. The controller doesn't need it.
+
+What the cross-build has to match, as read from the Pi on 2026-10-02:
+- Debian 13 (Trixie), aarch64, GCC 14.2.0, glibc 2.41.
+- pigpio in `/usr/local/lib/libpigpio.so.1`, built from commit `c33738a`.
+- 905 MB RAM and 904 MB swap.
+- `rsync` is installed.
+- `sudo` asks for a password.
 
 ### 11.2 Install the files
 
@@ -861,7 +874,7 @@ This really powers the Pi off. Only do it when you're ready to power-cycle it.
 
 ### 11.7 Results
 
-*To be filled in.*
+*To be filled in.* So far (2026-10-02): the build on the Pi was killed for lack of memory, as described in 11.1. Nothing from 11.2 onwards has been run yet.
 
 ---
 
