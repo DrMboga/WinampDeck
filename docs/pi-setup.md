@@ -775,7 +775,19 @@ The LCD shares I2C1 with the MCP23017. Leave a long line scrolling in controller
 
 ### 10.6 Results
 
-*To be filled in.*
+**10.1, wiring (2026-10-02).** `i2cdetect -y 1` listed `20`, `27` and `UU` at `3b`, so the level shifter didn't disturb the shared bus. With its pull-ups set by hand, the MCP23017 read `0xff` idle, `0xdf` with Pause held and `0xbf` with Play held. Writing `0x00` and `0x08` to the backpack turned the backlight off and on, so writes get through the shifter. Without the pull-ups, right after power-up, the port read random values (`0x00`, `0x17`). That's expected: only the tool sets them.
+
+**10.2, build.** The full build and all 150 tests passed on the Pi. One new `LcdView` test failed on the first run. The fault was in the test: it expected two scroll steps from one `ManualScheduler::advance()`, which only gives one. The test was fixed, and the view wasn't changed.
+
+**10.3, LCD mode.** Everything as listed: the controller initialised, and the ROM check showed A00, the Japanese ROM. All the samples displayed correctly, including the ROM's `ö`/`ä` and the transliterated Cyrillic. Long lines scrolled and came round after `  ***  `, and Ctrl+C cleared the LCD. The default 300ms scroll step was kept.
+
+**10.4, controller mode.** `PlayerController` drove the real buttons, LEDs, TFT and LCD together. Both displays showed the right information for each step, and every button press was handled correctly.
+
+**10.5, buttons and audio.** The buttons stayed responsive with the LCD on the shared bus (10.4). The audio check, with Spotify playing while the LCD scrolls, hasn't been run yet.
+
+**Decisions:**
+- **Cyrillic stays transliterated.** A00 has no Cyrillic. Drawing it with the HD44780's 8 user-defined characters, using the TFT font's glyphs, was considered and turned down. Lowercase Russian often needs more than 8 different custom letters in a 16-character window, so some letters would still fall back. Transliteration is predictable. Another way to get real Cyrillic would be a 1602 module with a Cyrillic ROM.
+- **Backlight brightness is set in hardware.** The PCF8574 can only switch the backlight on or off. To dim it, replace the backpack's backlight jumper with a resistor or a trimmer pot, set by eye with the LCD behind the panel's slot. That hasn't been done yet.
 
 ---
 

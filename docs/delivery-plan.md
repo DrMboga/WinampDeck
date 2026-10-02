@@ -80,11 +80,21 @@ Bring up SPI communication with the ST7735 using the developer's own proven init
 - **Spotify covers are converted at runtime.** `SpotifyTrack` and `NowPlayingScreen` gained a `coverUrl`, for the real `EngineClient` to fill from go-librespot's `album_cover_url`. `DeckArtwork` downloads covers on a background thread, decodes the JPEG with stb_image, centre-crops it, scales it to 92×92 by area averaging, and keeps the last 8. See [ADR 0003](adr/0003-cpp-controller-dependencies.md)'s 2026-10-01 update for why this is plain HTTP over IPv4 and adds stb_image.
 - **Tools.** `winampdeck-tft-preview` builds anywhere and renders the screens to `.bmp` files, including a real downloaded cover, to check the look without a Pi. `winampdeck-panel-test` gained `--tft`, which shows a test pattern and then the real screens. Its `--controller` mode now drives the real TFT with the shipped Stations. Its Spotify stand-in now connects on the first Play and plays three demo tracks with real covers, which also fixes Phase 5's "Spotify shows `stopped`" artifact.
 
-## Phase 7 — LCD
+## Phase 7 — LCD ✅
 
 Wire the FC-113/PCF8574 backpack, implement the scrolling first-row text ("Artist — Track" / "Station — Stream Title").
 
 **Exit criteria:** the LCD shows the right text, scrolling at the configured speed.
+
+**Status: done (2026-10-02).** Checked on the Pi with the LCD's backpack behind the TXS0108E. The level shifter left the shared I2C bus working, the LCD showed every sample text correctly, and in controller mode it followed `PlayerController` alongside the TFT and buttons. Results: [pi-setup.md](pi-setup.md#106-results). Still to do: the audio check while it scrolls, and dimming the backlight with a resistor. What was built:
+- **Hardware-free, like the TFT.** [`LcdView`](../src/ui/lcd_view.hpp) in `winampdeck_ui` hands 16-character rows to `ui::LcdDisplay`, the LCD's seam, and is tested in CI against a `ManualScheduler` and an in-memory LCD. Text up to 16 characters is shown still. Longer text pauses 1.5s, then scrolls one character per step with `  ***  ` between repeats, like the TFT's marquee. The step (default 300ms) is a constructor parameter, for Phase 8's config. Only rows that changed are written.
+- **[`encodeLcdText`](../src/ui/lcd_text.hpp)** maps UTF-8 to the HD44780's A00 ROM, which the module turned out to have:
+  - ASCII as itself, except `\` and `~`, which A00 shows as ¥ and →.
+  - `ä ö ü ß ñ ° µ` as the ROM's own characters, and `Ä Ö Ü` as `Ae Oe Ue`.
+  - Cyrillic transliterated. Custom CGRAM glyphs were turned down: 8 aren't enough for lowercase Russian.
+  - Everything else as the TFT font's plain substitute, else `?`.
+- **The [`Hd44780`](../src/hw/hd44780.hpp) driver** uses pigpio I2C to the PCF8574 at `0x27` (P0=RS, P2=E, P3=backlight, P4–P7=D4–D7), with the datasheet's initialisation by instruction into 4-bit mode. It writes a whole row as one I2C transfer, and clears the LCD and turns its backlight off on exit.
+- **Tools.** `winampdeck-panel-test` gained `--lcd`, which shows a ROM check and then sample texts, and `--lcd-scroll-ms`. Its `--controller` mode now drives the real LCD.
 
 ## Phase 8 — Config file and stations.csv
 
