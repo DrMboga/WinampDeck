@@ -16,6 +16,8 @@ add_executable(winampdeck_tests
     canvas_test.cpp
     image_test.cpp
     tft_view_test.cpp
+    lcd_text_test.cpp
+    lcd_view_test.cpp
     cover_art_test.cpp)
 target_link_libraries(winampdeck_tests PRIVATE
     winampdeck_core

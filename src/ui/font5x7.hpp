@@ -19,6 +19,10 @@ constexpr int kCharAdvance = kGlyphWidth + 1;
 // The font's own glyph for a character, or nullptr if it has none.
 const Glyph* findGlyph(char32_t codePoint);
 
+// The plain character the font draws in place of one it lacks (é as e,
+// — as -), or `codePoint` itself if there's no such substitute.
+char32_t substitute(char32_t codePoint);
+
 // What to draw for any character: its own glyph, else the closest one the font
 // has (é as e, — as -), else '?'.
 const Glyph& glyph(char32_t codePoint);

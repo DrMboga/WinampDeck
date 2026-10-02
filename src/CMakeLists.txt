@@ -10,14 +10,17 @@ target_include_directories(winampdeck_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(winampdeck_core PRIVATE WINAMPDECK_VERSION="${PROJECT_VERSION}")
 target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings)
 
-# winampdeck_ui: what the TFT shows, drawn in memory (font, canvas, the Now
-# Playing and Station List views). Hardware-free like the core, so it's tested
-# in CI too; the pixels reach the glass through the ui::Display interface.
+# winampdeck_ui: what the TFT and LCD show, worked out in memory (font, canvas,
+# the Now Playing and Station List views, the LCD's scrolling row). Hardware-free
+# like the core, so it's tested in CI too; it reaches the glass through the
+# ui::Display and ui::LcdDisplay interfaces.
 add_library(winampdeck_ui
     ui/canvas.cpp
     ui/display.cpp
     ui/font5x7.cpp
     ui/image.cpp
+    ui/lcd_text.cpp
+    ui/lcd_view.cpp
     ui/tft_view.cpp)
 target_link_libraries(winampdeck_ui
     PUBLIC winampdeck_core
@@ -48,9 +51,10 @@ add_executable(winampdeck-tft-preview
 target_link_libraries(winampdeck-tft-preview PRIVATE winampdeck_adapters winampdeck_warnings)
 
 # winampdeck_hw: the pigpio-backed panel (buttons/LEDs on the MCP23017, the
-# ST7735 TFT). Only builds on the Pi.
+# ST7735 TFT, the HD44780 LCD). Only builds on the Pi.
 if(WINAMPDECK_WITH_PIGPIO)
     add_library(winampdeck_hw
+        hw/hd44780.cpp
         hw/pigpio_session.cpp
         hw/pigpio_hardware_io.cpp
         hw/st7735.cpp)
@@ -58,8 +62,8 @@ if(WINAMPDECK_WITH_PIGPIO)
         PUBLIC winampdeck_adapters WinampDeck::asio WinampDeck::pigpio
         PRIVATE winampdeck_warnings)
 
-    # Bring-up tool: exercises the real buttons, LEDs and TFT on their own, or
-    # behind PlayerController (see docs/pi-setup.md, Phases 5 and 6).
+    # Bring-up tool: exercises the real buttons, LEDs, TFT and LCD on their own, or
+    # behind PlayerController (see docs/pi-setup.md, Phases 5 to 7).
     add_executable(winampdeck-panel-test
         tools/panel_test.cpp)
     target_link_libraries(winampdeck-panel-test PRIVATE winampdeck_hw winampdeck_warnings)

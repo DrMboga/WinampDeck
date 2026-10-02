@@ -270,14 +270,18 @@ const Glyph* findGlyph(char32_t codePoint) {
     return find(codePoint);
 }
 
+char32_t substitute(char32_t codePoint) {
+    const auto it = std::ranges::lower_bound(kSubstitutes, codePoint, {},
+                                             &std::pair<char32_t, char32_t>::first);
+    return it != kSubstitutes.end() && it->first == codePoint ? it->second : codePoint;
+}
+
 const Glyph& glyph(char32_t codePoint) {
     if (const Glyph* exact = find(codePoint)) {
         return *exact;
     }
-    const auto it = std::ranges::lower_bound(kSubstitutes, codePoint, {},
-                                             &std::pair<char32_t, char32_t>::first);
-    if (it != kSubstitutes.end() && it->first == codePoint) {
-        return *find(it->second);
+    if (const Glyph* substituted = find(substitute(codePoint))) {
+        return *substituted;
     }
     return *find(U'?');
 }

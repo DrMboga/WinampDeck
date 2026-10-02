@@ -697,6 +697,86 @@ As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play S
 - **Rotation:** rebuilt with the new 180° default (`0xA0`), and the screen reads the right way up as the module will sit in the panel. No `--madctl`, `--offset` or `--spi-hz` flags are needed any more.
 - **Backlight:** at the default brightness (255) the PWM is fully on, so that's the most GPIO12 can give. For comparison, LEDA was moved straight to 3.3V. That was visibly brighter, because a GPIO pin can only supply a few mA (8mA at the default drive setting) and that limits the backlight current. Even so, the GPIO12 PWM brightness looked better, so LEDA stays on GPIO12, with no transistor. See [wiring.md](wiring.md#st7735-tft-wiring).
 
+## Phase 7 — LCD
+
+**Goal** ([delivery plan](delivery-plan.md#phase-7--lcd)): the HD44780 shows `PlayerController`'s LCD text on its first row, the only one the panel's slot shows, scrolling text that doesn't fit at the configured speed. The tool is `winampdeck-panel-test` again:
+
+- **LCD mode** (`--lcd`) first shows a few characters from the LCD's character ROM, to tell which ROM it has. After 8 seconds it cycles through sample texts: short, scrolling, German and Cyrillic. It doesn't use the buttons or the TFT.
+- **Controller mode** (`--controller`) now drives the real LCD as well, and still prints each new LCD text to the console.
+
+Both take `--lcd-scroll-ms N`, the time per scroll step (default 300). Phase 8 moves it to the config file.
+
+What the LCD can show: its A00 ROM is ASCII plus Japanese katakana. `ä ö ü ß ñ ° µ` use the ROM's own characters, `Ä Ö Ü` become `Ae Oe Ue`, and Cyrillic is transliterated (`Кино` → `Kino`). Other accented letters lose their accent, and anything else shows as `?`.
+
+### 10.1 Before powering on — ✅ done 2026-10-02
+
+Wire the backpack through the TXS0108E per [wiring.md](wiring.md#lcd-backpack-wiring). With the Pi up, check that I2C still works:
+
+```bash
+i2cdetect -y 1                 # 20 (MCP23017), 27 (LCD backpack), UU at 3b (WM8804)
+i2cset -y 1 0x20 0x0C 0xff     # MCP23017 pull-ups on: after power-up only the tool sets them
+i2cget -y 1 0x20 0x12          # 0xff, with a cleared bit per held button
+i2cset -y 1 0x27 0x00          # LCD backlight off...
+i2cset -y 1 0x27 0x08          # ...and on again: writes get through the shifter
+```
+
+Then set the contrast pot so that a row of solid blocks shows on line 1. That's how an HD44780 that's powered but not yet initialised looks.
+
+### 10.2 Build
+
+```bash
+cd ~/WinampDeck && git pull
+cmake --build build -j1 --target winampdeck-panel-test   # the tool first
+cmake --build build -j1 && ctest --test-dir build --output-on-failure
+```
+
+### 10.3 LCD mode: ROM, text, scrolling
+
+```bash
+sudo ./build/src/winampdeck-panel-test --lcd
+```
+
+- [ ] **Initialisation.** The blocks disappear and line 2 is blank.
+- [ ] **ROM.** Line 1 reads `ROM: äöüß° アイウ`, which means the A00 ROM. If it reads `ROM: áïõâß ±²³`, the module has the European A02 ROM. Note which one, because A02 can show Cyrillic as itself.
+- [ ] **The samples**, after 8 seconds:
+  - `Spotify`: still, no scrolling.
+  - `Daft Punk - One More Time`: still for 1.5s, then scrolls one character per step, and comes round again after `  ***  `.
+  - `Herbert Grönemeyer - Männer`: `ö` and `ä` with their dots.
+  - `Kino - Gruppa krovi`.
+  - A long Radio line, scrolling all the way round.
+  - `Shutting down`.
+- [ ] **Speed.** 300ms per step should be readable. If it looks smeared, try `--lcd-scroll-ms 400`; if it feels slow, try `200`. Note the value you prefer, because it becomes the default.
+- [ ] Ctrl+C clears the LCD and turns its backlight off.
+
+**Troubleshooting**
+
+- `LCD backpack at 0x27 didn't answer`: go back to 10.1.
+- The backlight stays on but the blocks never go away, or the characters are garbage: the controller didn't take the 4-bit setup. Note what you see and report it.
+- The text is right but faint, or the blocks are back: turn the contrast pot. It changes with the supply voltage, so set it with the Pi powered as it will be.
+
+### 10.4 Controller mode: the Phase 7 exit criterion
+
+```bash
+sudo ./build/src/winampdeck-panel-test --controller
+```
+
+- [ ] **Stopped at startup:** the LCD is blank.
+- [ ] **Eject → Spotify:** `Spotify`.
+- [ ] **Play:** `Daft Punk - One More Time`, scrolling.
+- [ ] **Next:** `Daft Punk - Get Lucky (feat. ...`, which starts again from the beginning, with the pause, and scrolls.
+- [ ] **Eject → Radio:** the tuned Station's name. Next/Previous change it with each Station.
+- [ ] **Station List:** opening and moving through it doesn't change the LCD. It keeps showing the tuned Station until Play tunes another one.
+- [ ] **Eject held ~2s:** `Shutting down`, at the 2-second mark, while still held.
+- [ ] The console's `LCD:` lines match the LCD each time.
+
+### 10.5 Check the LCD doesn't disturb the buttons or audio
+
+The LCD shares I2C1 with the MCP23017. Leave a long line scrolling in controller mode while pressing buttons, and check that every press still registers promptly. Then, as in [8.7](#87-check-the-buttons-dont-disturb-audio), play Spotify from your phone while the LCD scrolls. Expect no dropouts or clicks, and nothing new in `dmesg | grep -iE "snd|hifiberry|i2s" | tail`.
+
+### 10.6 Results
+
+*To be filled in.*
+
 ---
 
 ## What's next

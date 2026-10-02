@@ -1,5 +1,5 @@
-// Bring-up tool for the panel's buttons, LEDs and TFT, run on the Pi as root.
-// Three modes:
+// Bring-up tool for the panel's buttons, LEDs, TFT and LCD, run on the Pi as root.
+// Four modes:
 //
 //   winampdeck-panel-test
 //       Prints every button press/release. Shuffle and Repeat toggle their
@@ -10,9 +10,14 @@
 //       order and edges, then cycles through the real Now Playing and Station
 //       List screens. Doesn't touch the buttons.
 //
-//   winampdeck-panel-test --controller [TFT OPTIONS]
-//       Runs the real PlayerController on the real buttons, LEDs and TFT,
-//       with console stand-ins for the Engines and the Stations from
+//   winampdeck-panel-test --lcd [LCD OPTIONS]
+//       Shows some of the LCD's character ROM, for telling which ROM it has,
+//       then cycles through sample texts: short, scrolling, German and
+//       Cyrillic. Doesn't touch the buttons or the TFT.
+//
+//   winampdeck-panel-test --controller [TFT OPTIONS] [LCD OPTIONS]
+//       Runs the real PlayerController on the real buttons, LEDs, TFT and
+//       LCD, with console stand-ins for the Engines and the Stations from
 //       stations.csv. The Spotify stand-in echoes each command back as the
 //       Engine's new state, the way go-librespot would, and plays a few demo
 //       tracks with real album covers. Safe Shutdown is only printed, never
@@ -25,7 +30,10 @@
 //   --brightness N     backlight, 0-255 (default: 255)
 //   --offset COL,ROW   where the visible area starts (default: 0,0)
 //
-// Ctrl+C quits, switching the LEDs and TFT off.
+// LCD OPTIONS:
+//   --lcd-scroll-ms N  how long each scroll step lasts (default: 300)
+//
+// Ctrl+C quits, switching the LEDs, TFT and LCD off.
 
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
@@ -55,10 +63,13 @@
 #include "adapters/deck_artwork.hpp"
 #include "core/player_controller.hpp"
 #include "core/stations_csv.hpp"
+#include "hw/hd44780.hpp"
 #include "hw/pigpio_hardware_io.hpp"
 #include "hw/pigpio_session.hpp"
 #include "hw/st7735.hpp"
 #include "ui/canvas.hpp"
+#include "ui/lcd_text.hpp"
+#include "ui/lcd_view.hpp"
 #include "ui/tft_view.hpp"
 
 namespace {
@@ -68,9 +79,10 @@ using namespace std::chrono_literals;
 using Clock = std::chrono::steady_clock;
 
 struct Options {
-    enum class Mode { Buttons, Tft, Controller } mode = Mode::Buttons;
+    enum class Mode { Buttons, Tft, Lcd, Controller } mode = Mode::Buttons;
     std::filesystem::path data = "data";
     St7735::Config tft;
+    std::chrono::milliseconds lcdScrollStep = ui::LcdView::kDefaultScrollStep;
 };
 
 Options parseOptions(int argc, char** argv) {
@@ -85,6 +97,10 @@ Options parseOptions(int argc, char** argv) {
         };
         if (arg == "--tft") {
             options.mode = Options::Mode::Tft;
+        } else if (arg == "--lcd") {
+            options.mode = Options::Mode::Lcd;
+        } else if (arg == "--lcd-scroll-ms") {
+            options.lcdScrollStep = std::chrono::milliseconds(std::stoul(value()));
         } else if (arg == "--controller") {
             options.mode = Options::Mode::Controller;
         } else if (arg == "--data") {
@@ -158,7 +174,7 @@ const std::vector<SpotifyTrack>& demoTracks() {
     return tracks;
 }
 
-// Mode 3 stand-ins.
+// Mode 4 stand-ins.
 class ConsoleEngineClient final : public EngineClient {
 public:
     explicit ConsoleEngineClient(asio::io_context& io) : io_(io) {}
@@ -248,7 +264,10 @@ public:
         std::cout << "  " << toString(led) << " LED " << (on ? "on" : "off") << std::endl;
         inner_.setLed(led, on);
     }
-    void showLcdText(const std::string& text) override { inner_.showLcdText(text); }
+    void showLcdText(const std::string& text) override {
+        std::cout << "  LCD: " << (text.empty() ? "(blank)" : text) << std::endl;
+        inner_.showLcdText(text);
+    }
     void showScreen(const Screen& screen) override { inner_.showScreen(screen); }
 
 private:
@@ -360,6 +379,50 @@ void runTftDemo(asio::io_context& io, const Options& options) {
     io.run();
 }
 
+// Mode 3: a peek at the character ROM, then sample texts through the real view.
+void runLcdDemo(asio::io_context& io, const Options& options) {
+    Hd44780 lcd;
+    // ä ö ü ß ° in A00, then three katakana. A02 has á ï õ â ß and ± ² ³ there.
+    lcd.writeRow("ROM: \xE1\xEF\xF5\xE2\xDF \xB1\xB2\xB3  ");
+    std::cout << "ROM check on the LCD. A00 (expected) shows:  ROM: äöüß° アイウ\n"
+                 "                       A02 would show:       ROM: áïõâß ±²³\n"
+                 "Sample texts start in 8 seconds. Ctrl+C quits."
+              << std::endl;
+
+    AsioScheduler scheduler(io);
+    ui::LcdView view(lcd, scheduler, options.lcdScrollStep);
+    const std::vector<std::string> samples = {
+        "Spotify",
+        "Daft Punk — One More Time",
+        "Herbert Grönemeyer — Männer",
+        "Кино — Группа крови",
+        "Radio Paradise — Grateful Dead — Ripple (live at the Fillmore)",
+        "Shutting down",
+    };
+    std::size_t next = 0;
+    asio::steady_timer timer(io, 8s);
+    std::function<void(const std::error_code&)> step = [&](const std::error_code& error) {
+        if (error) {
+            return;
+        }
+        const std::string& text = samples[next];
+        std::cout << "LCD: " << text << std::endl;
+        view.show(text);
+        next = (next + 1) % samples.size();
+        // Long enough to scroll all the way round once.
+        const auto length = ui::encodeLcdText(text).size();
+        auto showFor = std::chrono::duration_cast<std::chrono::milliseconds>(4s);
+        if (length > static_cast<std::size_t>(ui::LcdDisplay::kColumns)) {
+            showFor = ui::LcdView::kScrollDelay +
+                      options.lcdScrollStep * static_cast<long>(length + 7) + 2s;
+        }
+        timer.expires_after(showFor);
+        timer.async_wait(step);
+    };
+    timer.async_wait(step);
+    io.run();
+}
+
 std::size_t randomBelow(std::mt19937& random, std::size_t count) {
     return std::uniform_int_distribution<std::size_t>(0, count - 1)(random);
 }
@@ -372,8 +435,9 @@ int main(int argc, char** argv) {
         options = parseOptions(argc, argv);
     } catch (const std::exception& error) {
         std::cerr << "error: " << error.what() << "\n"
-                  << "Usage: " << argv[0] << " [--tft | --controller] [--data DIR] [--madctl 0xNN]\n"
-                  << "       [--spi-hz N] [--brightness 0-255] [--offset COL,ROW]\n";
+                  << "Usage: " << argv[0] << " [--tft | --lcd | --controller] [--data DIR]\n"
+                  << "       [--madctl 0xNN] [--spi-hz N] [--brightness 0-255] [--offset COL,ROW]\n"
+                  << "       [--lcd-scroll-ms N]\n";
         return 2;
     }
 
@@ -398,6 +462,10 @@ int main(int argc, char** argv) {
             std::cout << "TFT mode." << std::endl;
             runTftDemo(io, options);
             break;
+        case Options::Mode::Lcd:
+            std::cout << "LCD mode." << std::endl;
+            runLcdDemo(io, options);
+            break;
         case Options::Mode::Controller: {
             std::cout << "Controller mode: PlayerController on the real panel, Engines simulated.\n"
                          "Starts Stopped: press Eject to switch Source. Ctrl+C quits."
@@ -407,7 +475,9 @@ int main(int argc, char** argv) {
             St7735 tft(options.tft);
             DeckArtwork artwork(io, options.data / "logos");
             ui::TftView view(tft, artwork, scheduler);
-            PigpioHardwareIO hardware(io, &view);
+            Hd44780 lcd;
+            ui::LcdView lcdView(lcd, scheduler, options.lcdScrollStep);
+            PigpioHardwareIO hardware(io, &view, &lcdView);
             ConsoleEngineClient engine(io);
             ConsoleRadioClient radio;
             ConsoleSystemControl system;

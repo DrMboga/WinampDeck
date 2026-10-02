@@ -8,6 +8,7 @@
 #include <string>
 
 #include "core/hardware_io.hpp"
+#include "ui/lcd_view.hpp"
 #include "ui/tft_view.hpp"
 
 namespace winampdeck {
@@ -16,9 +17,8 @@ namespace winampdeck {
 // (I2C1, address 0x20), with presses signalled on its interrupt line (GPIO27)
 // rather than polled. Wiring: docs/wiring.md.
 //
-// Screens go to the TFT view, if there is one. The LCD isn't driven yet
-// (Phase 7); until then, its text is printed to stdout, as are screens when
-// there's no TFT.
+// Screens go to the TFT view and LCD text to the LCD view, if given; without
+// one, what it would show is printed to stdout instead.
 //
 // Listener callbacks run on the io_context's thread, never on pigpio's.
 // Requires a live PigpioSession.
@@ -29,8 +29,10 @@ public:
     static constexpr std::chrono::milliseconds kDebounce{20};
 
     // Configures the MCP23017 and turns both LEDs off. Throws
-    // std::runtime_error if the chip doesn't answer. `tft` must outlive this.
-    explicit PigpioHardwareIO(asio::io_context& io, ui::TftView* tft = nullptr);
+    // std::runtime_error if the chip doesn't answer. `tft` and `lcd` must
+    // outlive this.
+    explicit PigpioHardwareIO(asio::io_context& io, ui::TftView* tft = nullptr,
+                              ui::LcdView* lcd = nullptr);
     // Turns both LEDs off.
     ~PigpioHardwareIO() override;
 
@@ -54,6 +56,7 @@ private:
 
     asio::io_context& io_;
     ui::TftView* tft_;
+    ui::LcdView* lcd_;
     asio::steady_timer debounce_;
     unsigned i2c_ = 0;
     Listener* listener_ = nullptr;
