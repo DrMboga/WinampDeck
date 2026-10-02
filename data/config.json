@@ -1,0 +1,10 @@
+// WinampDeck settings, read once when the controller starts (ADR 0006).
+// Edit, then restart the controller. Any setting left out keeps its default.
+{
+    // TFT backlight, in percent: 0 (off) to 100 (full, the default).
+    "tft_brightness": 100,
+
+    // LCD scrolling: how long each one-character step lasts, in milliseconds,
+    // from 50 to 5000. Default 300.
+    "lcd_scroll_ms": 300
+}

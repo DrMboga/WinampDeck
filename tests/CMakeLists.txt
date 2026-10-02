@@ -15,6 +15,9 @@ add_executable(winampdeck_tests
     font_test.cpp
     canvas_test.cpp
     image_test.cpp
+    deck_config_test.cpp
+    librespot_events_test.cpp
+    mpv_client_test.cpp
     tft_view_test.cpp
     lcd_text_test.cpp
     lcd_view_test.cpp

@@ -3,12 +3,13 @@
 # link pigpio, sockets, or subprocess code, so the whole state machine stays
 # testable in plain CI.
 add_library(winampdeck_core
+    core/deck_config.cpp
     core/player_controller.cpp
     core/stations_csv.cpp
     core/version.cpp)
 target_include_directories(winampdeck_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(winampdeck_core PRIVATE WINAMPDECK_VERSION="${PROJECT_VERSION}")
-target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings)
+target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings nlohmann_json::nlohmann_json)
 
 # winampdeck_ui: what the TFT and LCD show, worked out in memory (font, canvas,
 # the Now Playing and Station List views, the LCD's scrolling row). Hardware-free
@@ -27,23 +28,19 @@ target_link_libraries(winampdeck_ui
     PRIVATE winampdeck_warnings)
 
 # winampdeck_adapters: production adapters that don't need the Pi (the Asio
-# scheduler, album covers downloaded over HTTP, Station logos from disk).
+# scheduler, album covers downloaded over HTTP, Station logos from disk, the
+# go-librespot and mpv clients, Safe Shutdown through systemd).
 add_library(winampdeck_adapters
     adapters/cover_art.cpp
     adapters/deck_artwork.cpp
-    adapters/stb_image.cpp)
+    adapters/go_librespot_client.cpp
+    adapters/librespot_events.cpp
+    adapters/mpv_client.cpp
+    adapters/stb_image.cpp
+    adapters/system_poweroff.cpp)
 target_link_libraries(winampdeck_adapters
-    PUBLIC winampdeck_ui WinampDeck::asio
-    PRIVATE winampdeck_warnings WinampDeck::httplib WinampDeck::stb)
-
-# winampdeck: the controller binary that runs on the Pi, wiring the core to the
-# real adapters (go-librespot, mpv, pigpio).
-add_executable(winampdeck
-    main.cpp)
-target_link_libraries(winampdeck PRIVATE winampdeck_core winampdeck_warnings)
-if(WINAMPDECK_WITH_PIGPIO)
-    target_link_libraries(winampdeck PRIVATE WinampDeck::pigpio)
-endif()
+    PUBLIC winampdeck_ui WinampDeck::asio WinampDeck::websocketpp
+    PRIVATE winampdeck_warnings WinampDeck::httplib WinampDeck::stb nlohmann_json::nlohmann_json)
 
 # Renders the TFT's screens to .bmp files, to check the look without a Pi.
 add_executable(winampdeck-tft-preview
@@ -67,4 +64,10 @@ if(WINAMPDECK_WITH_PIGPIO)
     add_executable(winampdeck-panel-test
         tools/panel_test.cpp)
     target_link_libraries(winampdeck-panel-test PRIVATE winampdeck_hw winampdeck_warnings)
+
+    # winampdeck: the controller itself, wiring PlayerController to the real
+    # panel and Engines (go-librespot, mpv).
+    add_executable(winampdeck
+        main.cpp)
+    target_link_libraries(winampdeck PRIVATE winampdeck_hw winampdeck_warnings)
 endif()
