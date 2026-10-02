@@ -148,13 +148,13 @@ void GoLibrespotClient::fetchStatus() {
             if (!alive) {
                 return;
             }
-            GoLibrespotClient& client = **alive;
-            if (client.listener_ == nullptr) {
+            GoLibrespotClient& owner = **alive;
+            if (owner.listener_ == nullptr) {
                 return;
             }
             if (status == 204) {
-                dispatchLibrespotNoSession(*client.listener_);
-            } else if (status != 200 || !dispatchLibrespotStatus(body, *client.listener_)) {
+                dispatchLibrespotNoSession(*owner.listener_);
+            } else if (status != 200 || !dispatchLibrespotStatus(body, *owner.listener_)) {
                 std::cerr << "go-librespot: GET /status: unexpected reply (HTTP " << status << ")"
                           << std::endl;
             }

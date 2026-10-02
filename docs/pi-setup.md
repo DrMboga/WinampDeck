@@ -789,6 +789,80 @@ The LCD shares I2C1 with the MCP23017. Leave a long line scrolling in controller
 - **Cyrillic stays transliterated.** A00 has no Cyrillic. Drawing it with the HD44780's 8 user-defined characters, using the TFT font's glyphs, was considered and turned down. Lowercase Russian often needs more than 8 different custom letters in a 16-character window, so some letters would still fall back. Transliteration is predictable. Another way to get real Cyrillic would be a 1602 module with a Cyrillic ROM.
 - **Backlight brightness is set in hardware.** The PCF8574 can only switch the backlight on or off. To dim it, replace the backpack's backlight jumper with a resistor or a trimmer pot, set by eye with the LCD behind the panel's slot. That hasn't been done yet.
 
+## Phase 8 — config files and the real controller
+
+**Goal** ([delivery plan](delivery-plan.md#phase-8--config-file-and-stationscsv)): the `winampdeck` binary runs `PlayerController` on the real panel with the real Engines, reading its settings and Stations from `/etc/winampdeck/` ([ADR 0006](adr/0006-config-files-and-engine-processes.md)). Editing a file and restarting the controller changes what it does. This is also the first time the real `EngineClient` and `RadioClient` run, so it closes the exit criteria Phases 2 and 3 left open.
+
+The controller connects to go-librespot on `localhost:3678` and to mpv's socket (`--mpv-socket`, default `/tmp/mpv-socket`). It doesn't start either one; until Phase 10 they run in tmux as in Phase 4. Either Engine can start before or after the controller, and either can be restarted, because the controller keeps retrying.
+
+### 11.1 Build
+
+```bash
+cd ~/WinampDeck && git pull
+cmake --build build -j1 --target winampdeck   # the controller first
+cmake --build build -j1 && ctest --test-dir build --output-on-failure
+```
+
+### 11.2 Install the files
+
+Copy the shipped files into `/etc/winampdeck/`. `-n` never overwrites, so running this again later leaves your edits alone:
+
+```bash
+sudo mkdir -p /etc/winampdeck
+sudo cp -n data/config.json data/stations.csv /etc/winampdeck/
+sudo cp -rn data/logos /etc/winampdeck/
+ls /etc/winampdeck /etc/winampdeck/logos | head
+```
+
+### 11.3 Start the Engines
+
+As in [7.1](#71-start-both-engines-with-log-files):
+
+```bash
+tmux kill-session -t librespot 2>/dev/null; tmux kill-session -t mpv 2>/dev/null
+tmux new -d -s librespot "cd ~/go-librespot && ./go-librespot --config_dir ~/go-librespot 2>&1 | tee ~/librespot.log"
+tmux new -d -s mpv "mpv --idle --no-video --input-ipc-server=/tmp/mpv-socket --audio-device=alsa/plug:dmixer --log-file=$HOME/mpv.log"
+```
+
+### 11.4 Run the controller
+
+```bash
+sudo ./build/src/winampdeck --config-dir /etc/winampdeck
+```
+
+It prints one line with what it read, such as `60 Stations, TFT brightness 100%, LCD scroll step 300ms`, then `go-librespot: connected` and `mpv: connected to /tmp/mpv-socket`. Ctrl+C stops it and switches the panel off.
+
+- [ ] **Startup:** Stopped. The TFT shows the `WINAMP` placeholder, and the LCD is blank.
+- [ ] **Auto-switch:** pick WinampDeck in the Spotify app and play. The Deck switches to Spotify by itself. The real cover, artist and title show, the clock follows the song, and the LCD scrolls `Artist - Title`.
+- [ ] **Spotify buttons:** Pause, Play, Next and Previous act on the real playback, and the phone's Spotify app shows each change. Shuffle and Repeat toggle in the app too, and their LEDs follow.
+- [ ] **Spotify elsewhere:** switch playback to the phone's own speaker. The Deck doesn't treat that as playing here.
+- [ ] **Eject → Radio:** Spotify pauses, and the first Station plays. Its logo shows, and after a few seconds the stream title appears on the TFT's second line and in the LCD text, for stations that send one.
+- [ ] **Radio buttons:** Next, Previous and Shuffle tune Stations, and Pause and Play work. The Station List opens with Repeat, and Play tunes the highlighted Station.
+- [ ] **Eject → Spotify and back to Radio:** Spotify resumes where it was, and Radio plays again. Radio is reloaded on every switch back to it, so expect a second or so of buffering.
+- [ ] **A long mute:** stay on Spotify for 10+ minutes, then Eject to Radio. It plays, not silence. That's the Phase 4 problem the reload fixes.
+- [ ] **Engine restarts:** kill and restart each Engine's tmux session (11.3) while the controller runs. The console reports the lost connection and then `connected` again, and playback works again afterwards.
+
+### 11.5 Edit the files: the Phase 8 exit criterion
+
+For each change, edit with `sudo nano /etc/winampdeck/config.json` (or `stations.csv`), then Ctrl+C the controller and start it again.
+
+- [ ] `"tft_brightness": 30`: the TFT is visibly dimmer, and the startup line says `30%`.
+- [ ] `"lcd_scroll_ms": 150`: long LCD lines scroll twice as fast.
+- [ ] A typo, such as `"tft_brightnes": 30`: the controller refuses to start, with `unknown setting "tft_brightnes"`. The panel stays untouched.
+- [ ] An out-of-range value, such as `"tft_brightness": 150`: it refuses with `must be from 0 to 100, not 150`.
+- [ ] `stations.csv`: move a Station to the top, or comment one out with `#`. After restarting, the Station List and Eject → Radio follow the change.
+- [ ] Rename `config.json` away: the controller starts with the defaults (100%, 300ms). Put it back afterwards.
+
+### 11.6 Safe Shutdown
+
+This really powers the Pi off. Only do it when you're ready to power-cycle it.
+
+- [ ] Hold Eject for 2 seconds. `Shutting down` shows on the LCD at the 2-second mark. The console prints `Safe Shutdown: systemctl poweroff`, and shortly afterwards the TFT and LCD go dark as systemd stops the controller. The Pi powers off: its green LED stops flashing. Then it's safe to remove power.
+
+### 11.7 Results
+
+*To be filled in.*
+
 ---
 
 ## What's next
