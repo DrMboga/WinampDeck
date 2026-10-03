@@ -787,7 +787,7 @@ The LCD shares I2C1 with the MCP23017. Leave a long line scrolling in controller
 
 **Decisions:**
 - **Cyrillic stays transliterated.** A00 has no Cyrillic. Drawing it with the HD44780's 8 user-defined characters, using the TFT font's glyphs, was considered and turned down. Lowercase Russian often needs more than 8 different custom letters in a 16-character window, so some letters would still fall back. Transliteration is predictable. Another way to get real Cyrillic would be a 1602 module with a Cyrillic ROM.
-- **Backlight brightness is set in hardware.** The PCF8574 can only switch the backlight on or off. To dim it, replace the backpack's backlight jumper with a resistor or a trimmer pot, set by eye with the LCD behind the panel's slot. That hasn't been done yet.
+- **Backlight brightness is set in hardware.** The PCF8574 can only switch the backlight on or off. To dim it, replace the backpack's backlight jumper with a resistor or a trimmer pot, set by eye with the LCD behind the panel's slot. Done 2026-10-03: a 220Ω resistor is soldered in place of the jumper ([wiring.md](wiring.md#lcd-backpack-wiring)).
 
 ## Phase 8 — config files and the real controller
 
@@ -997,5 +997,4 @@ The real controller runs the panel and both Engines (Phase 8), and systemd start
 - [Phase 11](delivery-plan.md#phase-11--last-station): remember the Last Station across power-offs.
 - [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. It starts with an experiment on the Pi: an ALSA loopback as a tap on the audio, which has to pass the Phase 4 soak again.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
-- The resistor in place of the LCD backpack's backlight jumper, to dim the LCD ([10.6](#106-results)).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.

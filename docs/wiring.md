@@ -159,7 +159,9 @@ The 10kΩ on OE isn't from AZ-Delivery's manual (this doc's earlier version left
 
 The MCP23017 stays wired directly to GPIO2/GPIO3 as before, in parallel with the level shifter's low-voltage side — it's the LCD adapter specifically that sits behind the shifter, not the whole bus.
 
-Note the adapter's backlight is a physical on/off jumper and its contrast a physical potentiometer — neither is software-controllable, so the config file's brightness setting only ever applies to the TFT, not this LCD.
+Note the adapter's backlight brightness and its contrast are both set in hardware, so the config file's brightness setting only ever applies to the TFT, not this LCD. The contrast is the adapter's potentiometer. The backlight has a two-pin jumper that feeds it from 5V, and the controller can only switch it fully on or off (PCF8574 pin P3).
+
+**Backlight resistor (2026-10-03):** the backlight jumper is replaced by a **220Ω resistor** soldered across its two pins. With the jumper fitted the backlight ran at full brightness, which was too bright behind the panel's slot. The resistor sits in series with the backlight LED and dims it; 220Ω was chosen by eye. To change the brightness, change this resistor: a larger value is dimmer, and the original jumper (0Ω) is full brightness. The controller still switches the backlight off when it exits.
 
 ## Verify before you solder
 
