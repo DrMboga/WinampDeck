@@ -107,6 +107,25 @@ bool dispatchLibrespotStatus(std::string_view body, EngineClient::Listener& list
     return true;
 }
 
+bool dispatchLibrespotModes(std::string_view body, EngineClient::Listener& listener) {
+    const json status = json::parse(body, nullptr, /*allow_exceptions=*/false);
+    if (!status.is_object()) {
+        return false;
+    }
+    listener.onSpotifyShuffleChanged(flag(status, "shuffle_context"));
+    listener.onSpotifyRepeatChanged(flag(status, "repeat_context"));
+    return true;
+}
+
+bool librespotEventMayChangeModes(std::string_view message) {
+    const json event = json::parse(message, nullptr, /*allow_exceptions=*/false);
+    if (!event.is_object()) {
+        return false;
+    }
+    const std::string type = text(event, "type");
+    return type == "active" || type == "metadata";
+}
+
 void dispatchLibrespotNoSession(EngineClient::Listener& listener) {
     listener.onSpotifyActiveChanged(false);
     listener.onSpotifyPlayingChanged(false);

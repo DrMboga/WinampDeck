@@ -65,6 +65,16 @@ void GoLibrespotClient::onMessage(const std::string& message) {
     if (listener_ != nullptr && !dispatchLibrespotEvent(message, *listener_)) {
         std::cerr << "go-librespot: ignored an event it couldn't read: " << message << std::endl;
     }
+    // A session or playlist that starts with shuffle or repeat already on
+    // brings no event for it, and the buttons toggle from the state last
+    // reported, so ask.
+    if (librespotEventMayChangeModes(message)) {
+        rest_.get("/status", [this](int status, const std::string& body) {
+            if (listener_ != nullptr && status == 200) {
+                dispatchLibrespotModes(body, *listener_);
+            }
+        });
+    }
 }
 
 void GoLibrespotClient::onClosed(const std::string& why) {

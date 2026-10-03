@@ -76,9 +76,13 @@ echo "Built $version into $out/"
 
 if [ "$deploy" = 1 ]; then
     echo "== Deploy to $pi"
-    ssh "$pi" 'mkdir -p ~/winampdeck-deploy'
-    scp -q "$out/winampdeck" "$out/winampdeck-panel-test" "$out/VERSION" "$pi:winampdeck-deploy/"
+    # A running binary can't be overwritten, but it can be replaced: upload
+    # next to it, then rename over it. The running controller carries on with
+    # the old one until it's restarted.
+    ssh "$pi" 'rm -rf ~/winampdeck-deploy/.incoming && mkdir -p ~/winampdeck-deploy/.incoming'
+    scp -q "$out/winampdeck" "$out/winampdeck-panel-test" "$out/VERSION" "$pi:winampdeck-deploy/.incoming/"
     scp -q -r data "$pi:winampdeck-deploy/"
-    ssh "$pi" 'cd ~/winampdeck-deploy && chmod +x winampdeck winampdeck-panel-test \
+    ssh "$pi" 'cd ~/winampdeck-deploy && chmod +x .incoming/winampdeck .incoming/winampdeck-panel-test \
+        && mv -f .incoming/* . && rmdir .incoming \
         && echo "On the Pi: ~/winampdeck-deploy, version $(cat VERSION)" && ls -l winampdeck winampdeck-panel-test'
 fi

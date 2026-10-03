@@ -26,6 +26,17 @@ bool dispatchLibrespotEvent(std::string_view message, EngineClient::Listener& li
 // that's dispatchLibrespotNoSession.)
 bool dispatchLibrespotStatus(std::string_view body, EngineClient::Listener& listener);
 
+// Only the shuffle and repeat modes from that same /status body. go-librespot
+// sends shuffle_context and repeat_context events when a mode changes, but
+// not when a session or playlist starts with one already on, so these have to
+// be asked for (see librespotEventMayChangeModes).
+bool dispatchLibrespotModes(std::string_view body, EngineClient::Listener& listener);
+
+// Whether an /events message is one after which the modes may differ from
+// what was last reported, with no event to say so: `active` (a session
+// arriving from a phone) and `metadata` (a new track, perhaps a new playlist).
+bool librespotEventMayChangeModes(std::string_view message);
+
 void dispatchLibrespotNoSession(EngineClient::Listener& listener);
 
 }  // namespace winampdeck

@@ -138,6 +138,24 @@ TEST(LibrespotStatus, StoppedSessionIsInactive) {
     EXPECT_EQ(listener.calls, (Calls{"inactive", "shuffle off", "repeat off", "not playing"}));
 }
 
+TEST(LibrespotStatus, ModesAloneAreJustShuffleAndRepeat) {
+    RecordingListener listener;
+    EXPECT_TRUE(dispatchLibrespotModes(
+        R"({"stopped":false,"paused":false,"shuffle_context":true,"repeat_context":false,
+            "track":{"name":"One More Time","position":61000}})",
+        listener));
+    EXPECT_EQ(listener.calls, (Calls{"shuffle on", "repeat off"}));
+    EXPECT_FALSE(dispatchLibrespotModes("not json", listener));
+}
+
+TEST(LibrespotEvents, ASessionOrTrackArrivingMayChangeTheModes) {
+    EXPECT_TRUE(librespotEventMayChangeModes(R"({"type":"active","data":null})"));
+    EXPECT_TRUE(librespotEventMayChangeModes(kMetadata));
+    EXPECT_FALSE(librespotEventMayChangeModes(R"({"type":"playing","data":{"uri":"spotify:track:x"}})"));
+    EXPECT_FALSE(librespotEventMayChangeModes(R"({"type":"shuffle_context","data":{"value":true}})"));
+    EXPECT_FALSE(librespotEventMayChangeModes("not json"));
+}
+
 TEST(LibrespotStatus, NoSession) {
     RecordingListener listener;
     dispatchLibrespotNoSession(listener);
