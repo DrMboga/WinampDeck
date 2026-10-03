@@ -131,11 +131,18 @@ Everything above, running together on the real Pi, HAT, and panel — inside the
 
 **Exit criteria:** the Deck runs correctly, unattended, for a multi-day soak.
 
-## Phase 10 — Packaging
+## Phase 10 — Packaging ✅
 
 systemd unit files for the controller, go-librespot, and mpv, so the Deck comes up fully working on boot with no manual steps or SSH session required.
 
 **Exit criteria:** cold power-on reaches a working Deck, every time.
+
+**Status: done (2026-10-03), ahead of Phase 9**, so that the soak test runs the Deck the way it will really run: started by systemd at boot. After a reboot and after a cold power-on, the Deck came up working by itself. Results: [pi-setup.md](pi-setup.md#126-results). Not yet run: the failure checks under systemd (a killed Engine or controller, a config typo) and a power cut without a Safe Shutdown. They fit naturally into Phase 9's soak. What was built:
+- **Three units**, in [systemd/](../systemd/):
+  - `winampdeck-librespot` and `winampdeck-mpv` run the Engines as `pi`, the same user for both because the `dmixer` device is only shared within one user ([ADR 0004](adr/0004-audio-device-sharing.md)). They restart whenever they exit.
+  - `winampdeck` runs the controller as root, which pigpio needs. It's ordered after the Engines without requiring them: it reconnects by itself, and at shutdown it stops first and switches the panel off. It restarts on failure, but gives up after 5 failures in a minute, so a mistake in `config.json` doesn't loop forever.
+- **mpv's socket** is `/run/winampdeck-mpv/socket`, in a runtime directory systemd creates and removes with the unit. go-librespot stays in `/home/pi/go-librespot`, where Phase 2 installed it.
+- **[tools/pi-install.sh](../tools/pi-install.sh)**, deployed as `install.sh`, installs the binaries into `/usr/local/bin` and the units into `/etc/systemd/system`, enables them, copies the config files only where they're missing, and restarts the controller. It needs `sudo`, so it's run by hand on the Pi after each `tools/deploy-pi.sh`.
 
 ## Deliberately not on this plan
 

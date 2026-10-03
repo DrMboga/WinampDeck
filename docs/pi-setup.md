@@ -972,14 +972,28 @@ Run the same two steps, deploy and `install.sh`, for every later update. An Engi
 
 ### 12.6 Results
 
-*To be filled in.*
+**12.1, install (2026-10-03).** Version `7f8206a`. `install.sh` ran cleanly, and all three units were `active (running)` and enabled. It left the edited `/etc/winampdeck/config.json` alone: the controller's startup line showed the 400ms scroll step set there.
+
+The journal showed the start order working as designed. All three units started in the same second, so the controller was up before either Engine was ready. It logged one `can't connect` line for each, retried, and connected to both:
+
+```
+WinampDeck controller 0.1.0: 60 Stations, TFT brightness 100%, LCD scroll step 400ms
+mpv: can't connect to /run/winampdeck-mpv/socket (No such file or directory), retrying every 1s
+go-librespot: can't connect (Connection refused), retrying every 2s
+go-librespot: connected
+mpv: connected to /run/winampdeck-mpv/socket
+```
+
+**12.3, reboot and cold power-on: the exit criterion.** After `sudo reboot`, and after a cold power-on, the Deck came up working by itself, with no SSH session. How long it takes from power-on to the `WINAMP` screen wasn't measured.
+
+**Not run:** the failure checks in 12.4 (a killed Engine, a killed controller, a typo in `config.json` under systemd), and pulling the power without a Safe Shutdown. The reconnects and the config errors themselves were checked in [Phase 8](#117-results), with the controller run by hand.
 
 ---
 
 ## What's next
 
-The real controller now runs the panel and both Engines (Phase 8). Nothing survives a reboot yet: the Engines run in tmux and the controller is started by hand. Next:
+The real controller runs the panel and both Engines (Phase 8), and systemd starts all three on boot (Phase 10). Next:
 
-- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel): the multi-day soak on the assembled panel.
-- [Phase 10](delivery-plan.md#phase-10--packaging): systemd units for the controller, go-librespot and mpv, so the Deck comes up on boot.
+- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel): the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
+- The resistor in place of the LCD backpack's backlight jumper, to dim the LCD ([10.6](#106-results)).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.
