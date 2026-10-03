@@ -1,0 +1,27 @@
+# The Internet Radio Engine: mpv, idle until the controller loads a Station
+# over its IPC socket (docs/pi-setup.md, Phase 3).
+[Unit]
+Description=WinampDeck Internet Radio Engine (mpv)
+Wants=network-online.target
+After=network-online.target sound.target
+
+[Service]
+# The same user as the Spotify Engine: the shared dmixer ALSA device is only
+# shared between processes of one user (ADR 0004).
+User=pi
+# /run/winampdeck-mpv, made for this user at start and removed at stop, so a
+# stale socket never outlives mpv.
+RuntimeDirectory=winampdeck-mpv
+# plug:dmixer, not bare dmixer: streams come at all rates (ADR 0004).
+# --no-config keeps a stray ~/.config/mpv out of it; --quiet drops the status
+# line but keeps warnings and errors for the journal.
+ExecStart=/usr/bin/mpv --no-config --idle --no-video --ytdl=no \
+    --no-input-terminal --quiet \
+    --input-ipc-server=/run/winampdeck-mpv/socket \
+    --audio-device=alsa/plug:dmixer
+# An Engine runs for the Deck's whole uptime; the controller reconnects.
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

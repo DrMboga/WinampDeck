@@ -899,6 +899,81 @@ This really powers the Pi off. Only do it when you're ready to power-cycle it.
 - A running binary can't be overwritten by `scp`. The deploy script now uploads beside it and renames over it.
 - The name `WinampDeck` resolved unreliably from the PC. The router listed two addresses for it: `192.168.0.249`, the Ethernet one, and `192.168.0.108`, probably left over from Wi-Fi. `tools/deploy-pi.sh pi@192.168.0.249` works around it.
 
+## Phase 10 — packaging
+
+**Goal** ([delivery plan](delivery-plan.md#phase-10--packaging)): a cold power-on reaches a working Deck every time, with no SSH session. Three systemd units do it ([systemd/](../systemd/)):
+
+| Unit | Runs | As |
+|---|---|---|
+| `winampdeck-librespot.service` | go-librespot, from `/home/pi/go-librespot` with its `config.yml` there | `pi` |
+| `winampdeck-mpv.service` | mpv, idle, with its socket at `/run/winampdeck-mpv/socket` | `pi` |
+| `winampdeck.service` | the controller, `/usr/local/bin/winampdeck` | root |
+
+- Both Engines run as `pi`, because the shared `dmixer` device is only shared between processes of one user ([ADR 0004](adr/0004-audio-device-sharing.md)).
+- The Engines restart whenever they exit. The controller restarts on failure, but gives up after 5 failures in a minute, so a mistake in `config.json` doesn't loop forever.
+- The controller is ordered after the Engines without requiring them. At shutdown it therefore stops first, and switches the panel off.
+
+### 12.1 Deploy and install
+
+On the PC:
+
+```bash
+tools/deploy-pi.sh
+```
+
+On the Pi, stop anything started by hand, then install:
+
+```bash
+tmux kill-session -t librespot 2>/dev/null; tmux kill-session -t mpv 2>/dev/null
+sudo ~/winampdeck-deploy/install.sh
+```
+
+`install.sh` puts the binaries in `/usr/local/bin` and the units in `/etc/systemd/system`, enables them, and copies `config.json`, `stations.csv` and `logos/` into `/etc/winampdeck` only where they're missing. It starts the Engines and restarts the controller. It ends with each unit's state:
+
+- [ ] All three show `active (running)`.
+- [ ] The panel comes up: `WINAMP` placeholder on the TFT.
+
+Run the same two steps, deploy and `install.sh`, for every later update. An Engine is only restarted if its unit file changed, so an update doesn't interrupt Radio for longer than the controller's restart.
+
+### 12.2 It works as a service
+
+- [ ] Play from the phone, use the buttons, Eject to Radio and back: all as in [11.4](#114-run-the-controller).
+- [ ] The logs are in the journal:
+  ```bash
+  journalctl -u winampdeck -u winampdeck-librespot -u winampdeck-mpv -f
+  ```
+  The controller's lines are the ones it printed to the console before: the startup line, `go-librespot: connected`, `mpv: connected to /run/winampdeck-mpv/socket`.
+
+### 12.3 Reboot and cold power-on: the Phase 10 exit criterion
+
+- [ ] `sudo reboot`: without logging in, the panel comes up by itself and Spotify and Radio both work. Note roughly how long it takes from power-on to the `WINAMP` screen.
+- [ ] Safe Shutdown (hold Eject 2s), wait for the green LED to stop, unplug, plug in again: the same.
+- [ ] Repeat the cold power-on a few times. It has to work every time.
+- [ ] Pull the power without a Safe Shutdown, once, and plug it in again: it still comes up.
+
+### 12.4 Failures recover
+
+- [ ] Kill an Engine. systemd restarts it, and the controller reconnects:
+  ```bash
+  sudo systemctl kill -s KILL winampdeck-mpv
+  journalctl -u winampdeck -n 5 --no-pager    # lost /run/winampdeck-mpv/socket ... then connected
+  ```
+  Then the same for `winampdeck-librespot`.
+- [ ] Kill the controller (`sudo systemctl kill -s KILL winampdeck`): it's back within a few seconds, and Radio never stopped.
+- [ ] Put a typo in `/etc/winampdeck/config.json` and `sudo systemctl restart winampdeck`. The panel stays dark, and after a few tries `systemctl status winampdeck` shows `failed`. `journalctl -u winampdeck -n 20 --no-pager` names the setting. Fix the file and restart the unit again.
+
+### 12.5 Day to day
+
+- **After editing `config.json` or `stations.csv`:** `sudo systemctl restart winampdeck`.
+- **Logs:** `journalctl -u winampdeck -f`, or `-b` for everything since boot.
+- **Running the controller by hand**, for its console output: `sudo systemctl stop winampdeck`, then `sudo winampdeck --mpv-socket /run/winampdeck-mpv/socket`. Start the unit again afterwards.
+- **The panel test** needs the GPIO to itself too: `sudo systemctl stop winampdeck`, then `sudo winampdeck-panel-test ...`.
+- **Turning it all off:** `sudo systemctl disable --now winampdeck winampdeck-librespot winampdeck-mpv`.
+
+### 12.6 Results
+
+*To be filled in.*
+
 ---
 
 ## What's next

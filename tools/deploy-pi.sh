@@ -11,10 +11,12 @@
 # On the Pi, everything lands in ~/winampdeck-deploy/:
 #   winampdeck, winampdeck-panel-test   the binaries
 #   data/                               config.json, stations.csv, logos/
+#   systemd/                            the service units
+#   install.sh                          installs all of the above (pi-install.sh)
 #   VERSION                             the commit they were built from
 # Nothing outside that directory is touched: sudo on the Pi asks for a
-# password, so installing into /etc/winampdeck is a step to run there by hand
-# (docs/pi-setup.md, Phase 8).
+# password, so installing is a step to run there by hand
+# (docs/pi-setup.md, Phase 10): sudo ~/winampdeck-deploy/install.sh
 set -euo pipefail
 
 pi=pi@WinampDeck
@@ -81,8 +83,11 @@ if [ "$deploy" = 1 ]; then
     # the old one until it's restarted.
     ssh "$pi" 'rm -rf ~/winampdeck-deploy/.incoming && mkdir -p ~/winampdeck-deploy/.incoming'
     scp -q "$out/winampdeck" "$out/winampdeck-panel-test" "$out/VERSION" "$pi:winampdeck-deploy/.incoming/"
-    scp -q -r data "$pi:winampdeck-deploy/"
-    ssh "$pi" 'cd ~/winampdeck-deploy && chmod +x .incoming/winampdeck .incoming/winampdeck-panel-test \
+    scp -q tools/pi-install.sh "$pi:winampdeck-deploy/.incoming/install.sh"
+    scp -q -r data systemd "$pi:winampdeck-deploy/"
+    ssh "$pi" 'cd ~/winampdeck-deploy \
+        && chmod +x .incoming/winampdeck .incoming/winampdeck-panel-test .incoming/install.sh \
         && mv -f .incoming/* . && rmdir .incoming \
         && echo "On the Pi: ~/winampdeck-deploy, version $(cat VERSION)" && ls -l winampdeck winampdeck-panel-test'
+    echo "To install it and restart the Deck, on the Pi: sudo ~/winampdeck-deploy/install.sh"
 fi

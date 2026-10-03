@@ -1,0 +1,20 @@
+# The Spotify Engine: go-librespot, as installed in docs/pi-setup.md (Phase 2),
+# with its config.yml and state in the same directory.
+[Unit]
+Description=WinampDeck Spotify Engine (go-librespot)
+# Zeroconf and Spotify itself both need the network.
+Wants=network-online.target
+After=network-online.target sound.target
+
+[Service]
+# The same user as the Radio Engine: the shared dmixer ALSA device is only
+# shared between processes of one user (ADR 0004).
+User=pi
+WorkingDirectory=/home/pi/go-librespot
+ExecStart=/home/pi/go-librespot/go-librespot --config_dir /home/pi/go-librespot
+# An Engine runs for the Deck's whole uptime; the controller reconnects.
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

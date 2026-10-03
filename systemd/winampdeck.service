@@ -1,0 +1,26 @@
+# The controller: PlayerController on the real panel and Engines.
+[Unit]
+Description=WinampDeck controller
+# Started alongside the Engines, and after them so they're usually up first.
+# It doesn't need them to start, though: it waits for each and reconnects.
+# After= also means it stops first at shutdown, switching the panel off while
+# the rest of the system is still up.
+Wants=winampdeck-librespot.service winampdeck-mpv.service
+After=winampdeck-librespot.service winampdeck-mpv.service systemd-modules-load.service
+# pigpio as a library needs the hardware to itself (docs/pi-setup.md, 8.3).
+Conflicts=pigpiod.service
+# A mistake in config.json or stations.csv stops it at startup. Give up after
+# a few tries rather than restarting forever; the journal has the message.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+# Root, which pigpio needs. Safe Shutdown's `systemctl poweroff` needs it too.
+ExecStart=/usr/local/bin/winampdeck --config-dir /etc/winampdeck --mpv-socket /run/winampdeck-mpv/socket
+Restart=on-failure
+RestartSec=3
+# SIGTERM makes it switch the LEDs, TFT and LCD off and exit.
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
