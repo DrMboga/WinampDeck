@@ -879,14 +879,33 @@ This really powers the Pi off. Only do it when you're ready to power-cycle it.
 
 ### 11.7 Results
 
-*To be filled in.* So far (2026-10-02): the build on the Pi was killed for lack of memory, as described in 11.1. Nothing from 11.2 onwards has been run yet.
+**11.1, build (2026-10-03).** The build on the Pi had been killed for lack of memory the day before. The PC now cross-builds and deploys with `tools/deploy-pi.sh`: 184 unit tests pass in the container, and the deployed `winampdeck` starts on the Pi and loads the Pi's own `libpigpio.so.1`. Tested version: `a4662e3`.
+
+**11.4, the real controller (2026-10-03).** Run from `~/winampdeck-deploy` with both Engines in tmux.
+- Startup, auto-switch to Spotify from a phone, the Spotify buttons, Eject to Radio and back, the Radio buttons and the Station List all worked.
+- **One bug found and fixed: Shuffle did nothing when the playlist already had shuffle on.** go-librespot sends `shuffle_context` and `repeat_context` only when a mode changes, so a session that starts with shuffle on brought no event. The controller believed shuffle was off, and each press asked for "on" again. The client now asks `/status` for both modes after every `active` and `metadata` event. Retested: the LEDs show the phone's state, and both buttons toggle from it.
+- **A long mute:** after more than 10 minutes on Spotify, Eject to Radio played the same Station again, with its stream title. It's the live stream, because the Station is loaded afresh on every switch back.
+- **Engine restart:** with an Engine's tmux session killed and started again, the controller reported the lost connection, reconnected, and playback worked again.
+
+**11.5, editing the files (2026-10-03): the exit criterion.** All as listed:
+- `tft_brightness: 30` dimmed the TFT.
+- `lcd_scroll_ms: 150` doubled the scroll speed.
+- A misspelt key and an out-of-range value each stopped the controller at startup, naming the setting.
+- An edited `stations.csv` changed the Station order after a restart.
+
+**11.6, Safe Shutdown.** Not run yet.
+
+**Deploying:**
+- A running binary can't be overwritten by `scp`. The deploy script now uploads beside it and renames over it.
+- The name `WinampDeck` resolved unreliably from the PC. The router listed two addresses for it: `192.168.0.249`, the Ethernet one, and `192.168.0.108`, probably left over from Wi-Fi. `tools/deploy-pi.sh pi@192.168.0.249` works around it.
 
 ---
 
 ## What's next
 
-Phases 2–4 are Engine-only tests — no real `EngineClient`/`RadioClient` C++ code exists yet, and none of this needs to survive a reboot cleanly (that's [Phase 10](delivery-plan.md#phase-10--packaging)'s systemd units). Next:
+The real controller now runs the panel and both Engines (Phase 8). Nothing survives a reboot yet: the Engines run in tmux and the controller is started by hand. Next:
 
-- The actual `EngineClient` (REST+WebSocket client for go-librespot) and `RadioClient` (JSON IPC client for mpv) get implemented in the C++ controller, against the interfaces already proven correct in Phase 1.
-- `RadioClient` must handle the two Phase 4 findings above: select the audio track before `loadfile`, and re-`loadfile` the Station when switching Source to Radio rather than relying on `aid auto` alone.
-- Still open: a long-mute test (30+ minutes muted, then `aid auto`) to measure how long a muted stream survives, and Wi-Fi reliability with the HAT fitted.
+- The Safe Shutdown check ([11.6](#116-safe-shutdown)), which closes Phase 8.
+- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel): the multi-day soak on the assembled panel.
+- [Phase 10](delivery-plan.md#phase-10--packaging): systemd units for the controller, go-librespot and mpv, so the Deck comes up on boot.
+- Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.

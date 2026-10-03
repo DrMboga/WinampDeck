@@ -120,7 +120,9 @@ The `stations.csv` parser and the shipped list ([data/](../data/)) already exist
 2. **Tests stay native.** The hardware-free suite runs in an amd64 container on the PC, as CI does. The Pi only runs the controller and the panel test.
 3. **A deploy script** builds, prints the commit it built, and copies `winampdeck`, `winampdeck-panel-test` and `data/` to `~/winampdeck-deploy/` on the Pi with `scp`, as `pi@WinampDeck` with key authentication. `sudo` on the Pi asks for a password, so installing into `/etc/winampdeck` stays a manual `sudo` step.
 
-**Still to do:** the rest of [the checklist](pi-setup.md#phase-8--config-files-and-the-real-controller) on the Pi, from 11.2.
+**Checked on the Pi (2026-10-03).** The real controller ran the panel and both Engines: auto-switch from a phone, every button for both Sources, the Station List, a mute of more than 10 minutes followed by Radio playing again, and an Engine restart. Editing `config.json` and `stations.csv` and restarting changed the brightness, the scroll speed and the Station order, and mistakes in `config.json` stopped the controller with a clear message. That meets this phase's exit criterion and the ones Phases 2–3 left open. One bug was found and fixed: the Shuffle and Repeat buttons did nothing when a session started with the mode already on, because go-librespot sends no event for that; the client now asks for the modes when a session or track arrives. Results: [pi-setup.md](pi-setup.md#117-results).
+
+**Still to do:** the Safe Shutdown check ([11.6](pi-setup.md#116-safe-shutdown)).
 
 ## Phase 9 — Full integration on the assembled panel
 
