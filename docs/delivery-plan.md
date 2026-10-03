@@ -41,6 +41,7 @@ This is the biggest phase in terms of decisions made real, and the one the spec'
 - **Phase 2 (go-librespot): smoke-tested and confirmed.** REST control, WebSocket metadata/event flow, and the auto-switch signal (`active`/`inactive` events — simpler than the device-ID comparison originally anticipated in [spec.md](../.tracker/controller-v1/spec.md#implementation-decisions), worth revisiting there once the C++ `EngineClient` is written) all confirmed against a real phone. Along the way, found and fixed a real-audio-only bug: the shared `dmixer` ALSA device needs to be referenced as `plug:dmixer`, not bare `dmixer`, or playback comes out sped up/pitched up (rate-mismatch — recorded in [ADR 0004](adr/0004-audio-device-sharing.md)'s update log).
 - **Phase 3 (mpv): smoke-tested and confirmed.** IPC control (loadfile/pause/resume) works correctly against a real internet radio stream, at the right speed (same `plug:dmixer` fix as Phase 2). The `pause`-keeps-device-open vs. `aid no`-releases-device distinction ADR 0004's mute mechanism depends on is directly confirmed on real hardware — see that ADR's update log for the exact (slightly different-than-expected, but conclusion-unchanged) `/proc/asound` states observed.
 - **Not yet done, for either phase: the actual exit criteria above** — that requires the real `EngineClient`/`RadioClient` C++ code running behind `PlayerController`, and no controller code exists yet ([README](../README.md)'s Status section still says so). What's done is the manual-CLI-smoke-test half both phase descriptions call for: both Engines install cleanly, respond correctly to the same commands/IPC calls the real adapters will issue, and the two ADR-0004-relevant behaviors (auto-switch signal, `aid no`/`aid auto` device release) are confirmed on the actual board rather than just from reading source. That derisks writing `EngineClient`/`RadioClient` next — it doesn't replace it. Neither Engine is set up to survive a reboot yet (no systemd units — that's [Phase 10](#phase-10--packaging)).
+- **Exit criteria met (2026-10-03), in [Phase 8](#phase-8--config-file-and-stationscsv-):** the real `GoLibrespotClient` and `MpvClient` now drive both Engines through the same `PlayerController`, checked on the Pi.
 
 ## Phase 4 — The real HiFiBerry Digi+ Pro, and both engines sharing it ✅
 
@@ -96,7 +97,7 @@ Wire the FC-113/PCF8574 backpack, implement the scrolling first-row text ("Artis
 - **The [`Hd44780`](../src/hw/hd44780.hpp) driver** uses pigpio I2C to the PCF8574 at `0x27` (P0=RS, P2=E, P3=backlight, P4–P7=D4–D7), with the datasheet's initialisation by instruction into 4-bit mode. It writes a whole row as one I2C transfer, and clears the LCD and turns its backlight off on exit.
 - **Tools.** `winampdeck-panel-test` gained `--lcd`, which shows a ROM check and then sample texts, and `--lcd-scroll-ms`. Its `--controller` mode now drives the real LCD.
 
-## Phase 8 — Config file and stations.csv
+## Phase 8 — Config file and stations.csv ✅
 
 Load the plain config file (brightness, LCD scroll speed) and `stations.csv` (name, URL, logo) at startup, and wire them into the relevant adapters/views.
 
@@ -122,7 +123,7 @@ The `stations.csv` parser and the shipped list ([data/](../data/)) already exist
 
 **Checked on the Pi (2026-10-03).** The real controller ran the panel and both Engines: auto-switch from a phone, every button for both Sources, the Station List, a mute of more than 10 minutes followed by Radio playing again, and an Engine restart. Editing `config.json` and `stations.csv` and restarting changed the brightness, the scroll speed and the Station order, and mistakes in `config.json` stopped the controller with a clear message. That meets this phase's exit criterion and the ones Phases 2–3 left open. One bug was found and fixed: the Shuffle and Repeat buttons did nothing when a session started with the mode already on, because go-librespot sends no event for that; the client now asks for the modes when a session or track arrives. Results: [pi-setup.md](pi-setup.md#117-results).
 
-**Still to do:** the Safe Shutdown check ([11.6](pi-setup.md#116-safe-shutdown)).
+**Status: done (2026-10-03).** Safe Shutdown was the last check: holding Eject powered the Pi off.
 
 ## Phase 9 — Full integration on the assembled panel
 

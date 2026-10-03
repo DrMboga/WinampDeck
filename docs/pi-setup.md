@@ -893,7 +893,7 @@ This really powers the Pi off. Only do it when you're ready to power-cycle it.
 - A misspelt key and an out-of-range value each stopped the controller at startup, naming the setting.
 - An edited `stations.csv` changed the Station order after a restart.
 
-**11.6, Safe Shutdown.** Not run yet.
+**11.6, Safe Shutdown (2026-10-03).** Holding Eject shut the Pi down.
 
 **Deploying:**
 - A running binary can't be overwritten by `scp`. The deploy script now uploads beside it and renames over it.
@@ -905,7 +905,6 @@ This really powers the Pi off. Only do it when you're ready to power-cycle it.
 
 The real controller now runs the panel and both Engines (Phase 8). Nothing survives a reboot yet: the Engines run in tmux and the controller is started by hand. Next:
 
-- The Safe Shutdown check ([11.6](#116-safe-shutdown)), which closes Phase 8.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel): the multi-day soak on the assembled panel.
 - [Phase 10](delivery-plan.md#phase-10--packaging): systemd units for the controller, go-librespot and mpv, so the Deck comes up on boot.
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.
