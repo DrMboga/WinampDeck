@@ -797,30 +797,35 @@ The controller connects to go-librespot on `localhost:3678` and to mpv's socket 
 
 **Network (2026-10-02):** Wi-Fi kept dropping, so the Pi now runs on Ethernet only, with Wi-Fi turned off in firmware: `dtoverlay=disable-wifi` in `/boot/firmware/config.txt`. To bring it back, remove that line and reboot. The router gives it the name `WinampDeck`, so `ssh pi@WinampDeck` works from the PC, with key authentication.
 
-### 11.1 Build
+### 11.1 Build on the PC and deploy
 
-**Status (2026-10-02): the Pi ran out of memory building the controller.** `go_librespot_client.cpp` peaked at 1.28 GB, and the compiler was killed. The file has been split since then (see the [delivery plan](delivery-plan.md#phase-8--config-file-and-stationscsv)), but the plan is to stop building on the Pi altogether: cross-build on the PC in Docker and copy the binaries over. That's the next step to set up. Until it exists, building on the Pi still works:
+The Pi no longer builds the code. On 2026-10-02 it ran out of memory compiling the controller: `go_librespot_client.cpp` peaked at 1.28 GB and the compiler was killed. The file has been split since then, but even a build that fits takes the Pi a long time. Since 2026-10-03 the PC cross-builds in Docker and copies the binaries over.
+
+On the PC, from the repo root, in Git Bash, with Docker Desktop running:
 
 ```bash
-cd ~/WinampDeck && git pull
-cmake --build build -j1 --target winampdeck   # the controller first
-cmake --build build -j1 && ctest --test-dir build --output-on-failure
+tools/deploy-pi.sh
 ```
 
-The full build also compiles `dependencies_test.cpp`, which needs about 1.28 GB and may be killed the same way. The controller doesn't need it.
+It does three things:
+1. **Runs the unit tests** natively in the container, the same suite as CI. `--skip-tests` leaves this out.
+2. **Cross-builds** `winampdeck` and `winampdeck-panel-test` for aarch64, into `build-pi/`. `--no-deploy` stops here.
+3. **Copies** the binaries, `data/` and a `VERSION` file (the commit, plus `+uncommitted` if the tree had changes) to `~/winampdeck-deploy/` on `pi@WinampDeck`. A different `USER@HOST` can be given as an argument.
 
-What the cross-build has to match, as read from the Pi on 2026-10-02:
-- Debian 13 (Trixie), aarch64, GCC 14.2.0, glibc 2.41.
-- pigpio in `/usr/local/lib/libpigpio.so.1`, built from commit `c33738a`.
-- 905 MB RAM and 904 MB swap.
-- `rsync` is installed.
-- `sudo` asks for a password.
+The first run builds the Docker image ([tools/cross/Dockerfile](../tools/cross/Dockerfile)), which takes a few minutes. A full build after that takes a minute or two, and later ones only rebuild what changed.
+
+The container is Debian Trixie, like the Pi's Raspberry Pi OS Trixie, so both have GCC 14.2 and glibc 2.41. pigpio is cross-built in the image from the commit the Pi's copy was built from (`c33738a`), only to link against. On the Pi the binaries load its own `/usr/local/lib/libpigpio.so.1`.
+
+The deploy script changes nothing outside `~/winampdeck-deploy/`, because `sudo` on the Pi asks for a password. Installing into `/etc/winampdeck` is 11.2, by hand.
+
+Building on the Pi (`git pull` and `cmake --build build -j1`, as in [8.4](#84-clone-and-build)) still works as a fallback, but the full build includes `dependencies_test.cpp`, which needs about 1.28 GB and may be killed.
 
 ### 11.2 Install the files
 
-Copy the shipped files into `/etc/winampdeck/`. `-n` never overwrites, so running this again later leaves your edits alone:
+On the Pi. Copy the shipped files into `/etc/winampdeck/`. `-n` never overwrites, so running this again after a later deploy leaves your edits alone:
 
 ```bash
+cd ~/winampdeck-deploy
 sudo mkdir -p /etc/winampdeck
 sudo cp -n data/config.json data/stations.csv /etc/winampdeck/
 sudo cp -rn data/logos /etc/winampdeck/
@@ -840,7 +845,7 @@ tmux new -d -s mpv "mpv --idle --no-video --input-ipc-server=/tmp/mpv-socket --a
 ### 11.4 Run the controller
 
 ```bash
-sudo ./build/src/winampdeck --config-dir /etc/winampdeck
+sudo ~/winampdeck-deploy/winampdeck
 ```
 
 It prints one line with what it read, such as `60 Stations, TFT brightness 100%, LCD scroll step 300ms`, then `go-librespot: connected` and `mpv: connected to /tmp/mpv-socket`. Ctrl+C stops it and switches the panel off.

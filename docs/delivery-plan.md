@@ -115,11 +115,12 @@ The `stations.csv` parser and the shipped list ([data/](../data/)) already exist
 
 **The Pi can't build it comfortably.** Compiling the first version of `go_librespot_client.cpp` ran the Pi 3 out of memory (`Killed signal terminated program cc1plus`): cpp-httplib and websocketpp in one file peaked at 1.28 GB with `-O2 -g`. It was split into [`LibrespotRest`](../src/adapters/librespot_rest.hpp) and [`LibrespotEventStream`](../src/adapters/librespot_event_stream.hpp), each hiding its library behind its header, and now no file peaks above 760 MB. The test file `dependencies_test.cpp` still needs about 1.28 GB.
 
-**Next: build on the PC and deploy to the Pi.** This replaces `git pull` and `cmake --build` on the Pi:
+**Building on the PC and deploying to the Pi (done 2026-10-03).** [tools/deploy-pi.sh](../tools/deploy-pi.sh) does all of the below, using the image from [tools/cross/Dockerfile](../tools/cross/Dockerfile) and [cmake/toolchain-pi-arm64.cmake](../cmake/toolchain-pi-arm64.cmake); how to use it is in [pi-setup.md](pi-setup.md#111-build-on-the-pc-and-deploy). The deployed `winampdeck` runs on the Pi and loads the Pi's own pigpio. It replaces `git pull` and `cmake --build` on the Pi, as planned:
 1. **Cross-build in Docker.** A Debian Trixie container with `crossbuild-essential-arm64` matches the Pi: Raspberry Pi OS Trixie, aarch64, GCC 14.2, glibc 2.41, as checked on 2026-10-02. pigpio is cross-built from the commit the Pi has (`c33738a`), only to link against; at runtime the binary uses the Pi's own `/usr/local/lib/libpigpio.so.1`. The build uses the same `-DWINAMPDECK_WITH_PIGPIO=ON` configuration as on the Pi.
 2. **Tests stay native.** The hardware-free suite runs in an amd64 container on the PC, as CI does. The Pi only runs the controller and the panel test.
-3. **A deploy script** builds, prints the commit it built, and copies `winampdeck`, `winampdeck-panel-test` and `data/` to the Pi with `rsync` over SSH, as `pi@WinampDeck` with key authentication. `sudo` on the Pi asks for a password, so the script copies into the home directory. Installing into `/etc/winampdeck` stays a manual `sudo` step, or runs over `ssh -t`.
-4. Then the rest of [the checklist](pi-setup.md#phase-8--config-files-and-the-real-controller), from 11.2.
+3. **A deploy script** builds, prints the commit it built, and copies `winampdeck`, `winampdeck-panel-test` and `data/` to `~/winampdeck-deploy/` on the Pi with `scp`, as `pi@WinampDeck` with key authentication. `sudo` on the Pi asks for a password, so installing into `/etc/winampdeck` stays a manual `sudo` step.
+
+**Still to do:** the rest of [the checklist](pi-setup.md#phase-8--config-files-and-the-real-controller) on the Pi, from 11.2.
 
 ## Phase 9 — Full integration on the assembled panel
 
