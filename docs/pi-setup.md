@@ -994,6 +994,8 @@ mpv: connected to /run/winampdeck-mpv/socket
 
 The real controller runs the panel and both Engines (Phase 8), and systemd starts all three on boot (Phase 10). Next:
 
-- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel): the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
+- [Phase 11](delivery-plan.md#phase-11--last-station): remember the Last Station across power-offs.
+- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. It starts with an experiment on the Pi: an ALSA loopback as a tap on the audio, which has to pass the Phase 4 soak again.
+- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
 - The resistor in place of the LCD backpack's backlight jumper, to dim the LCD ([10.6](#106-results)).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.

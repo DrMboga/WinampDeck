@@ -28,6 +28,10 @@ _Avoid_: power off, halt
 A named internet radio stream the Deck can tune to, with an associated logo image. Maintained as a fixed, hand-edited list, not managed through the Deck itself.
 _Avoid_: channel, preset
 
+**Last Station**:
+The Station that was tuned when the Deck last did a Safe Shutdown, remembered across power-offs so the first switch to Internet Radio tunes it instead of the first Station in the list. Distinct from the tuned Station, which is the one playing now.
+_Avoid_: saved station, default station, favourite
+
 **Now Playing**:
 The TFT's normal screen mode: what the audible Source is playing (album cover or Station logo, play status, elapsed time, track or stream text) under the Winamp-style skin, with its decorative spectrum.
 _Avoid_: main screen, home screen

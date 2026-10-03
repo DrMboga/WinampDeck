@@ -131,6 +131,8 @@ Everything above, running together on the real Pi, HAT, and panel — inside the
 
 **Exit criteria:** the Deck runs correctly, unattended, for a multi-day soak.
 
+**Order (decided 2026-10-03):** this phase now comes last, after [Phase 11](#phase-11--last-station) and [Phase 12](#phase-12--real-spectrum-analyzer). Phase 12 changes the audio setup, and the soak only means something on the setup the finished Deck uses. The soak also picks up the checks Phase 10 left out: a killed Engine or controller, a config typo under systemd, and a power cut without a Safe Shutdown.
+
 ## Phase 10 — Packaging ✅
 
 systemd unit files for the controller, go-librespot, and mpv, so the Deck comes up fully working on boot with no manual steps or SSH session required.
@@ -144,6 +146,40 @@ systemd unit files for the controller, go-librespot, and mpv, so the Deck comes 
 - **mpv's socket** is `/run/winampdeck-mpv/socket`, in a runtime directory systemd creates and removes with the unit. go-librespot stays in `/home/pi/go-librespot`, where Phase 2 installed it.
 - **[tools/pi-install.sh](../tools/pi-install.sh)**, deployed as `install.sh`, installs the binaries into `/usr/local/bin` and the units into `/etc/systemd/system`, enables them, copies the config files only where they're missing, and restarts the controller. It needs `sudo`, so it's run by hand on the Pi after each `tools/deploy-pi.sh`.
 
+## Phase 11 — Last Station
+
+Added 2026-10-03, after the Deck had been used for real. Spec: [.tracker/last-station/spec.md](../.tracker/last-station/spec.md). Decisions: [ADR 0007](adr/0007-last-station-state-file.md).
+
+After a power-on, the first switch to Internet Radio tunes the Last Station, the one that was tuned at the last Safe Shutdown, instead of the first Station in the list. The Deck still starts in Stopped.
+
+- The Last Station is remembered as a position in `stations.csv`, in `/var/lib/winampdeck/state.json`, which the controller writes. A position past the end of the list, or a missing or damaged file, means the first Station.
+- It's saved only at Safe Shutdown. After a power cut or an unplug, the Deck comes back with the Station from the last Safe Shutdown.
+- The rules live in `PlayerController`, behind a new `StationMemory` interface, and are tested with a fake like the rest of the core.
+
+**Exit criteria:** tune a Station, Safe Shutdown, power-cycle, and the first switch to Internet Radio plays that Station; with the rules covered by tests in CI.
+
+## Phase 12 — Real spectrum analyzer
+
+Added 2026-10-03. Spec: [.tracker/spectrum-analyzer/spec.md](../.tracker/spectrum-analyzer/spec.md). Research: [.tracker/spectrum-analyzer/research/audio-tap.md](../.tracker/spectrum-analyzer/research/audio-tap.md).
+
+The TFT's 15 bars show the sound that's actually playing, in place of today's decorative animation. The controller has to hear what the Engines play, and ALSA's shared mixer has no built-in way to allow that, so this phase starts with an experiment and is only built if the experiment passes.
+
+**Step 1: the experiment, on the Pi, with no controller code.** Load the kernel's loopback sound card and have each Engine play to two mixers at once: the existing one on the HAT, and a second one on the loopback, which the controller will later record from. The risk is that the two devices' clocks drift apart; the loopback is to be set to take its timing from the HAT. It passes only if all three hold:
+1. The [Phase 4](#phase-4--the-real-hifiberry-digi-pro-and-both-engines-sharing-it-) soak, unchanged: 90 Source switches with no failed command, no device-busy error and no audible glitch.
+2. Two hours of continuous play on each Engine, with no dropout by ear and no underrun or xrun in the logs.
+3. A recording from the loopback while music plays sounds like that music.
+
+If it fails and can't be fixed by adjusting the configuration, restore the previous ALSA configuration, record the result, and try PipeWire in place of the ALSA mixer as a separate experiment with the same three checks. If both fail, the decorative spectrum stays as it is.
+
+**Step 2: the analyzer, if step 1 passed.**
+- Inside the controller, behind a new `SpectrumSource` interface. Recording and the Fourier transform run on a background thread, and the TFT view only draws the levels it's given.
+- Real bars when the tap is available; flat bars and one log line when it isn't. The decorative animation is removed.
+- Starting values, to tune on the real screen: 15 bars spaced evenly in pitch from about 60 Hz to 16 kHz, left and right mixed, decibel height, the existing rise, fall and peak markers, 20 updates a second.
+- New dependencies: KISS FFT, and ALSA's client library on the Pi and in the cross-build image.
+- First build step: measure the cost on the Pi 3. Check on the real Deck whether the bars need a delay to keep time with the sound.
+
+**Exit criteria:** the bars follow the music for both Sources and fall to nothing on pause and mute; the audio is as clean as before (the three checks above still hold with the analyzer running); and with the loopback unavailable the bars stay flat while everything else works.
+
 ## Deliberately not on this plan
 
-The plywood enclosure build is physical work tracked separately from software delivery. The real spectrum analyzer (PipeWire-based), the web/OAuth stack, SQLite, and play history are out of scope per the spec — not deferred to a later phase, just not part of this plan at all.
+The plywood enclosure build is physical work tracked separately from software delivery. The web/OAuth stack, SQLite, and play history are out of scope per the spec — not deferred to a later phase, just not part of this plan at all. The real spectrum analyzer was on this list until 2026-10-03; it's now [Phase 12](#phase-12--real-spectrum-analyzer).
