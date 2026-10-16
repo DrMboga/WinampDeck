@@ -1014,15 +1014,22 @@ As in [12.1](#121-deploy-and-install): `tools/deploy-pi.sh` on the PC, `sudo ~/w
 
 ### 13.4 Results
 
-Not run yet.
+**13.1, install (2026-10-16).** Version `ff4cbbd`. systemd created the directory for the controller's unit:
+
+```
+drwxr-xr-x 2 root root 4096 Oct 16 17:15 /var/lib/winampdeck
+```
+
+**13.2, the exit criterion.** A Station was tuned and the Deck shut down by holding Eject. After it booted, Radio played that Station. A second round, with another Station, came back with that one too. The contents of `state.json`, the journal's `saved Station` line, and the pull-the-plug check weren't recorded.
+
+**13.3, fallbacks.** All three passed: a deleted `state.json` and a damaged one both gave the first Station, and a Spotify-only session left the file as it was.
 
 ---
 
 ## What's next
 
-The real controller runs the panel and both Engines (Phase 8), and systemd starts all three on boot (Phase 10). Next:
+The real controller runs the panel and both Engines (Phase 8), systemd starts all three on boot (Phase 10), and Radio comes back on the Last Station (Phase 11). Next:
 
-- [Phase 11](delivery-plan.md#phase-11--last-station): remember the Last Station across power-offs. Built and tested in CI; the check on the Pi is [Phase 11](#phase-11--last-station) above.
 - [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. It starts with an experiment on the Pi: an ALSA loopback as a tap on the audio, which has to pass the Phase 4 soak again.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.

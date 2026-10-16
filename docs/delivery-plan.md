@@ -146,7 +146,7 @@ systemd unit files for the controller, go-librespot, and mpv, so the Deck comes 
 - **mpv's socket** is `/run/winampdeck-mpv/socket`, in a runtime directory systemd creates and removes with the unit. go-librespot stays in `/home/pi/go-librespot`, where Phase 2 installed it.
 - **[tools/pi-install.sh](../tools/pi-install.sh)**, deployed as `install.sh`, installs the binaries into `/usr/local/bin` and the units into `/etc/systemd/system`, enables them, copies the config files only where they're missing, and restarts the controller. It needs `sudo`, so it's run by hand on the Pi after each `tools/deploy-pi.sh`.
 
-## Phase 11 — Last Station
+## Phase 11 — Last Station ✅
 
 Added 2026-10-03, after the Deck had been used for real. Spec: [.tracker/last-station/spec.md](../.tracker/last-station/spec.md). Decisions: [ADR 0007](adr/0007-last-station-state-file.md).
 
@@ -158,7 +158,7 @@ After a power-on, the first switch to Internet Radio tunes the Last Station, the
 
 **Exit criteria:** tune a Station, Safe Shutdown, power-cycle, and the first switch to Internet Radio plays that Station; with the rules covered by tests in CI.
 
-**Status: built (2026-10-16); the check on the Pi is still to do** ([pi-setup.md](pi-setup.md#phase-11--last-station)). What was built:
+**Status: done (2026-10-16).** On the Pi, a Station tuned before a Safe Shutdown was played again after the power-on, twice over, and a missing or damaged state file and a Spotify-only session all behaved as specified. Results: [pi-setup.md](pi-setup.md#134-results). Not yet run: pulling the plug after tuning another Station; it fits into Phase 9's soak with Phase 10's power-cut check. What was built:
 - **`StationMemory`** ([src/core/station_memory.hpp](../src/core/station_memory.hpp)), passed to `PlayerController`. The controller reads it the first time Radio becomes the Source, and saves the tuned Station at Safe Shutdown, after "Shutting down" is shown and before the poweroff. Covered by `tests/last_station_test.cpp` with a fake.
 - **`StateFile`** ([src/adapters/state_file.cpp](../src/adapters/state_file.cpp)), the production adapter: `state.json` read leniently, written to a temporary file that's synced and renamed over it. Covered by `tests/state_file_test.cpp` against a temporary directory.
 - **The controller** takes `--state-dir`, default `/var/lib/winampdeck`; its unit has `StateDirectory=winampdeck`. The panel test keeps the Last Station in memory only.
