@@ -174,6 +174,8 @@ The TFT's 15 bars show the sound that's actually playing, in place of today's de
 2. Two hours of continuous play on each Engine, with no dropout by ear and no underrun or xrun in the logs.
 3. A recording from the loopback while music plays sounds like that music.
 
+**Status of Step 1 (2026-10-16): in progress.** The loopback is set up with the HAT as its timer, and both Engines play through it. Checks 1 and 3 have passed, along with a reboot; check 2 is still to run. The Pi is left on this setup. Details and results: [pi-setup.md](pi-setup.md#phase-12--real-spectrum-analyzer).
+
 If it fails and can't be fixed by adjusting the configuration, restore the previous ALSA configuration, record the result, and try PipeWire in place of the ALSA mixer as a separate experiment with the same three checks. If both fail, the decorative spectrum stays as it is.
 
 **Step 2: the analyzer, if step 1 passed.**

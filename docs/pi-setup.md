@@ -1024,12 +1024,157 @@ drwxr-xr-x 2 root root 4096 Oct 16 17:15 /var/lib/winampdeck
 
 **13.3, fallbacks.** All three passed: a deleted `state.json` and a damaged one both gave the first Station, and a Spotify-only session left the file as it was.
 
+## Phase 12 — Real spectrum analyzer
+
+**Goal of Step 1** ([delivery plan](delivery-plan.md#phase-12--real-spectrum-analyzer), research in `.tracker/spectrum-analyzer/research/audio-tap.md`): a copy of everything the Engines play, on a loopback sound card the controller can record from, without disturbing the sound. Each Engine plays to a new device, `deck`, which sends the audio both to the existing `dmixer` on the HAT and to a second mixer, `dmixloop`, on the kernel's loopback card (`snd-aloop`). The loopback takes its timing from the HAT (`timer_source`), so there's only one clock. No controller code is involved.
+
+**Status (2026-10-16): in progress.** The tap is set up and checks 1 and 3 have passed; check 2 (two hours on each Engine) is still to run. **The Pi is left on the experimental setup**: both Engines play to `deck`.
+
+### 14.1 What the Pi had
+
+Read with Radio playing, before any change:
+
+- Kernel `6.18.50+rpt-rpi-v8`; `snd-aloop` is there, with the `timer_source` option.
+- `dmixer` runs the HAT at `S16_LE`, 48000 Hz, stereo, `period_size 6000`, `buffer_size 18000` (its defaults). The loopback's mixer must match these exactly; they're pinned in `dmixloop` below, and `dmixer` itself is unchanged.
+- Cards 0 (HAT) and 1 (HDMI) are taken, so the loopback is card 2.
+
+### 14.2 The loopback
+
+```bash
+sudo cp /etc/asound.conf /etc/asound.conf.before-phase12
+echo snd-aloop | sudo tee /etc/modules-load.d/snd-aloop.conf
+echo "options snd-aloop index=2 pcm_substreams=1 timer_source=sndrpihifiberry.0.0" | sudo tee /etc/modprobe.d/snd-aloop.conf
+```
+
+Added to the end of `/etc/asound.conf` (the existing lines stay as they are):
+
+```
+# Phase 12 experiment: everything played to "deck" goes to the HAT and,
+# as a copy, to the loopback, where the controller can record it.
+pcm.dmixloop {
+    type dmix
+    ipc_key 1025
+    ipc_key_add_uid false
+    slave {
+        pcm "hw:Loopback,0,0"
+        format S16_LE
+        channels 2
+        rate 48000
+        period_size 6000
+        buffer_size 18000
+    }
+}
+
+pcm.deckmulti {
+    type multi
+    slaves.a { pcm "dmixer" channels 2 }
+    slaves.b { pcm "dmixloop" channels 2 }
+    bindings.0 { slave a channel 0 }
+    bindings.1 { slave a channel 1 }
+    bindings.2 { slave b channel 0 }
+    bindings.3 { slave b channel 1 }
+    master 0
+}
+
+pcm.deck {
+    type route
+    slave { pcm "deckmulti" channels 4 }
+    ttable.0.0 1
+    ttable.1.1 1
+    ttable.0.2 1
+    ttable.1.3 1
+}
+```
+
+After a reboot, `cat /proc/asound/cards` lists `2 [Loopback ]` and `/sys/module/snd_aloop/parameters/timer_source` starts with `sndrpihifiberry.0.0`.
+
+Testing it with a tone, while the Engines are still on `dmixer`:
+
+```bash
+arecord -D hw:Loopback,1,0 -f S16_LE -r 48000 -c 2 -d 14 /tmp/boot.wav & speaker-test -D plug:deck -c 2 -t sine -l 1; wait
+```
+
+### 14.3 The Engines on `deck`
+
+mpv, through a drop-in, so the unit from the repo stays as it is:
+
+```bash
+sudo mkdir -p /etc/systemd/system/winampdeck-mpv.service.d
+sudo tee /etc/systemd/system/winampdeck-mpv.service.d/phase12-tap.conf <<'EOF'
+# Phase 12 experiment: play to "deck" (HAT + loopback copy) instead of dmixer.
+[Service]
+ExecStart=
+ExecStart=/usr/bin/mpv --no-config --idle --no-video --ytdl=no --no-input-terminal --quiet --input-ipc-server=/run/winampdeck-mpv/socket --audio-device=alsa/plug:deck
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart winampdeck-mpv
+```
+
+go-librespot, in its `config.yml`, keeping a backup:
+
+```bash
+sed -i.before-phase12 's/^audio_device: plug:dmixer$/audio_device: plug:deck/' ~/go-librespot/config.yml
+sudo systemctl restart winampdeck-librespot
+```
+
+While an Engine plays, both `/proc/asound/card0/pcm0p/sub0/status` (HAT) and `/proc/asound/card2/pcm0p/sub0/status` (loopback) show `state: RUNNING`, with the same `period_size 6000`. A recording of what's playing:
+
+```bash
+arecord -D hw:Loopback,1,0 -f S16_LE -r 48000 -c 2 -d 20 /tmp/radio.wav
+```
+
+### 14.4 The soak through the tap
+
+`~/switch-soak-tap.sh` is the [Phase 4 soak](#72-the-switching-soak-script) adapted to this setup: mpv's socket is `/run/winampdeck-mpv/socket`, and after every switch both the HAT and the loopback must be `RUNNING` (counted as `device-not-running`). It drives the Engines directly, so the controller is stopped first (`sudo systemctl stop winampdeck`), Spotify is started from the phone, and a Station is loaded with `aid auto` then `loadfile` over the socket, as in [7.1](#71-start-both-engines-with-log-files).
+
+```bash
+~/switch-soak-tap.sh 10 5 && ~/switch-soak-tap.sh 30 1 && ~/switch-soak-tap.sh 50 0.3
+journalctl -u winampdeck-mpv -u winampdeck-librespot --since "-30min" | grep -iE "busy|xrun|underrun|underflow"
+sudo systemctl start winampdeck
+```
+
+### 14.5 Undoing it
+
+To go back to the setup from before Phase 12:
+
+```bash
+sudo rm -r /etc/systemd/system/winampdeck-mpv.service.d /etc/modules-load.d/snd-aloop.conf /etc/modprobe.d/snd-aloop.conf
+mv ~/go-librespot/config.yml.before-phase12 ~/go-librespot/config.yml
+sudo cp /etc/asound.conf.before-phase12 /etc/asound.conf
+sudo systemctl daemon-reload && sudo systemctl restart winampdeck-mpv winampdeck-librespot
+```
+
+The loopback module stays loaded until the next reboot.
+
+### 14.6 Results so far (2026-10-16)
+
+**Check 3, a recording sounds like the music: passed.** Recordings of Radio and of Spotify from the loopback sounded exactly like what was playing, and the Engines' journals showed no errors. A test tone recorded at the same level it was played: peak 26226 of 32767 (−1.9 dBFS), so nothing in the copy attenuates it.
+
+**The loopback across a reboot: passed.** With the module loaded from `/etc/modules-load.d`, it came up as card 2 with `timer_source=sndrpihifiberry.0.0`, and a tone recorded through it in full.
+
+**Check 1, the Phase 4 soak through the tap: passed.** 90 switches (10×5s, 30×1s, 50×0.3s): 0 failed commands, the HAT and the loopback both `RUNNING` after all 180 recorded states, nothing in the kernel log, `throttled=0x0`, and the switching was audibly smooth. In the journal around it:
+- Two mpv `Audio device underrun detected`, both while the Station was being loaded before the soak, none during it. The first came when `aid auto` brought back a Station muted long enough for its server to drop the connection (`Stream ends prematurely`, the long-mute behaviour in [ADR 0004](adr/0004-audio-device-sharing.md)); the second as the new stream started. Both are mpv short of network input, not the device. Check 2 will show whether any appear in steady play.
+- go-librespot `429: Too many requests` during the 0.3s run: Spotify's servers throttling the stream of play/pause state reports. Not audio.
+
+**Found along the way:**
+- **When nothing plays to `deck`, the loopback stops.** It takes its timing from the HAT's stream through `deck`, so with no Engine playing, a recording gets no more data and `arecord` fails with `Input/output error` once its read times out. The controller's recorder in Step 2 must treat a read error or timeout as silence and reopen the device, not give up.
+- On the Pi, the original `~/switch-soak.sh` is an older version than the one in [7.2](#72-the-switching-soak-script), without the `device-not-running` count; the tap copy has it.
+
+**Still to do: check 2.** Two hours of Radio, then two hours of Spotify, with the controller running and the Deck used normally; note the start and end times. Afterwards:
+
+```bash
+journalctl -u winampdeck-mpv -u winampdeck-librespot --since "<start>" --until "<end>" | grep -iE "xrun|underrun|underflow|busy"
+journalctl -k --since "<start>" --until "<end>" | grep -iE "aloop|xrun|i2s"
+```
+
+It passes with no dropout by ear and nothing from either command. If Step 1 passes, record it here and in the delivery plan, and the setup in 14.2 and 14.3 becomes the Deck's real one (to be moved into the repo's unit and an install step as part of Step 2).
+
 ---
 
 ## What's next
 
 The real controller runs the panel and both Engines (Phase 8), systemd starts all three on boot (Phase 10), and Radio comes back on the Last Station (Phase 11). Next:
 
-- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. It starts with an experiment on the Pi: an ALSA loopback as a tap on the audio, which has to pass the Phase 4 soak again.
+- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. Its Step 1, the ALSA loopback tap, is under way: see [Phase 12](#phase-12--real-spectrum-analyzer) above; two-hour runs on each Engine are left.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.
