@@ -134,7 +134,9 @@ TEST_F(SourceSwitchingTest, RadioWithNoStationsIsAnInertSource) {
     FakeHardwareIO localHw;
     ManualScheduler localScheduler;
     FakeSystemControl localSystem;
+    FakeStationMemory localMemory;
     PlayerController localController{localEngine, localRadio, localHw, localScheduler, localSystem,
+                                     localMemory,
                                      {}, [](std::size_t) { return 0u; }};
     localController.start();
     localHw.tap(Button::Eject);

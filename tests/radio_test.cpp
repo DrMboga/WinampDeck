@@ -70,8 +70,10 @@ TEST_F(RadioTest, ShuffleWithASingleStationDoesNothing) {
     FakeHardwareIO localHw;
     ManualScheduler localScheduler;
     FakeSystemControl localSystem;
+    FakeStationMemory localMemory;
     bool asked = false;
     PlayerController localController{localEngine, localRadio, localHw, localScheduler, localSystem,
+                                     localMemory,
                                      {{"Solo", "http://solo.example/stream", "solo.png"}},
                                      [&](std::size_t) {
                                          asked = true;

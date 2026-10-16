@@ -71,8 +71,9 @@ TEST_F(EjectTest, LongPressShutsDownFromEverySource) {
         FakeHardwareIO localHw;
         ManualScheduler localScheduler;
         FakeSystemControl localSystem;
-        PlayerController localController{localEngine, localRadio, localHw, localScheduler,
-                                         localSystem, testStations(), [](std::size_t) { return 0u; }};
+        FakeStationMemory localMemory;
+        PlayerController localController{localEngine, localRadio, localHw, localScheduler, localSystem,
+                                         localMemory, testStations(), [](std::size_t) { return 0u; }};
         localController.start();
         for (int i = 0; i < shortPresses; ++i) {
             localHw.tap(Button::Eject);

@@ -34,8 +34,8 @@ protected:
         clearCommands();
     }
 
-    // Stopped -> Spotify -> Radio (tuning the first Station), then forget the
-    // commands that took.
+    // Stopped -> Spotify -> Radio (tuning the Last Station: the first one,
+    // unless the test set memory.remembered), then forget the commands that took.
     void enterRadio() {
         hw.tap(Button::Eject);
         hw.tap(Button::Eject);
@@ -52,11 +52,12 @@ protected:
     FakeHardwareIO hw;
     ManualScheduler scheduler;
     FakeSystemControl system;
+    FakeStationMemory memory;
     // Queued answers for Shuffle's random pick, and the counts it was asked for.
     std::deque<std::size_t> randomPicks;
     std::vector<std::size_t> randomCounts;
 
-    PlayerController controller{engine, radio, hw, scheduler, system, testStations(),
+    PlayerController controller{engine, radio, hw, scheduler, system, memory, testStations(),
                                 [this](std::size_t count) {
                                     randomCounts.push_back(count);
                                     const std::size_t pick = randomPicks.front();

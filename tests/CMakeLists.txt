@@ -21,7 +21,9 @@ add_executable(winampdeck_tests
     tft_view_test.cpp
     lcd_text_test.cpp
     lcd_view_test.cpp
-    cover_art_test.cpp)
+    cover_art_test.cpp
+    last_station_test.cpp
+    state_file_test.cpp)
 target_link_libraries(winampdeck_tests PRIVATE
     winampdeck_core
     winampdeck_ui

@@ -21,13 +21,14 @@ std::string joinWithDash(const std::string& first, const std::string& second) {
 }  // namespace
 
 PlayerController::PlayerController(EngineClient& engine, RadioClient& radio, HardwareIO& hardware,
-                                   Scheduler& scheduler, SystemControl& system,
+                                   Scheduler& scheduler, SystemControl& system, StationMemory& memory,
                                    std::vector<Station> stations, RandomIndex randomIndex)
     : engine_(engine),
       radio_(radio),
       hardware_(hardware),
       scheduler_(scheduler),
       system_(system),
+      memory_(memory),
       stations_(std::move(stations)),
       randomIndex_(std::move(randomIndex)) {
     engine_.setListener(this);
@@ -97,8 +98,13 @@ void PlayerController::onButtonReleased(Button button) {
 void PlayerController::onEjectHeld() {
     ejectTimer_.reset();
     shuttingDown_ = true;
-    // Show it before powering off, since the poweroff may take us down with it.
+    // Show it before saving and powering off, since the poweroff may take us
+    // down with it.
     refreshPanel();
+    // Only a Station tuned this run is saved; otherwise the remembered one stays.
+    if (tunedStation_) {
+        memory_.rememberStation(*tunedStation_);
+    }
     system_.safeShutdown();
 }
 
@@ -222,7 +228,7 @@ void PlayerController::switchSource(Source to) {
     } else if (to == Source::Radio) {
         radio_.unmute();
         if (!tunedStation_ && !stations_.empty()) {
-            tune(0);
+            tune(lastStation());
         }
     }
 }
@@ -299,6 +305,12 @@ void PlayerController::tune(std::size_t station) {
     radioPlaying_ = true;
     streamTitle_.clear();
     radio_.tune(stations_[station]);
+}
+
+std::size_t PlayerController::lastStation() {
+    // A position past the end means stations.csv got shorter since: the first.
+    const std::optional<std::size_t> remembered = memory_.rememberedStation();
+    return remembered && *remembered < stations_.size() ? *remembered : 0;
 }
 
 std::size_t PlayerController::stepStation(std::size_t from, bool forward) const {

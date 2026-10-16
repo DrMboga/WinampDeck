@@ -988,13 +988,41 @@ mpv: connected to /run/winampdeck-mpv/socket
 
 **Not run:** the failure checks in 12.4 (a killed Engine, a killed controller, a typo in `config.json` under systemd), and pulling the power without a Safe Shutdown. The reconnects and the config errors themselves were checked in [Phase 8](#117-results), with the controller run by hand.
 
+## Phase 11 — Last Station
+
+**Goal** ([delivery plan](delivery-plan.md#phase-11--last-station), [ADR 0007](adr/0007-last-station-state-file.md)): after a power-on, the first switch to Internet Radio tunes the Station that was tuned at the last Safe Shutdown. The controller keeps it in `/var/lib/winampdeck/state.json`, as a position in `stations.csv` counted from zero: `{"station":12}`. systemd creates the directory for the controller's unit (`StateDirectory=`); `install.sh` and `deploy-pi.sh` never touch it.
+
+### 13.1 Deploy and install
+
+As in [12.1](#121-deploy-and-install): `tools/deploy-pi.sh` on the PC, `sudo ~/winampdeck-deploy/install.sh` on the Pi. The controller's unit changed, so `install.sh` reinstalls it.
+
+- [ ] `ls -ld /var/lib/winampdeck` shows the directory, owned by root. There's no `state.json` in it yet.
+
+### 13.2 The exit criterion
+
+- [ ] Eject twice: Radio tunes the first Station, as before (nothing is remembered yet).
+- [ ] Step to another Station, say the fifth. Hold Eject for a Safe Shutdown. "Shutting down" appears at the 2-second mark, as before.
+- [ ] Power-cycle. The Deck starts in Stopped. Eject goes to Spotify, the second Eject to Radio, which plays the fifth Station.
+- [ ] `cat /var/lib/winampdeck/state.json` shows `{"station":4}`, and `journalctl -u winampdeck -b -1 | grep "Last Station"` the `saved Station 4` line from before the shutdown.
+- [ ] Tune another Station, then pull the plug without a Safe Shutdown. After power-on, Radio plays the fifth Station again.
+
+### 13.3 Fallbacks
+
+- [ ] `sudo rm /var/lib/winampdeck/state.json`, `sudo systemctl restart winampdeck`: Radio tunes the first Station.
+- [ ] `echo garbage | sudo tee /var/lib/winampdeck/state.json`, restart: the Deck starts, Radio tunes the first Station, and the journal says why (`Last Station: ... isn't valid JSON`).
+- [ ] With Spotify the Source and no switch to Radio since power-on, a Safe Shutdown leaves `state.json` as it was.
+
+### 13.4 Results
+
+Not run yet.
+
 ---
 
 ## What's next
 
 The real controller runs the panel and both Engines (Phase 8), and systemd starts all three on boot (Phase 10). Next:
 
-- [Phase 11](delivery-plan.md#phase-11--last-station): remember the Last Station across power-offs.
+- [Phase 11](delivery-plan.md#phase-11--last-station): remember the Last Station across power-offs. Built and tested in CI; the check on the Pi is [Phase 11](#phase-11--last-station) above.
 - [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. It starts with an experiment on the Pi: an ALSA loopback as a tap on the audio, which has to pass the Phase 4 soak again.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.

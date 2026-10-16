@@ -1,11 +1,12 @@
 #pragma once
 
 // In-memory stand-ins for go-librespot, mpv, pigpio, the event loop's timers,
-// and the OS, so PlayerController can be exercised with no real hardware,
-// sockets, or subprocesses. Commands are recorded as plain strings so tests
-// read like the button map.
+// the OS, and the Last Station's state file, so PlayerController can be
+// exercised with no real hardware, sockets, files, or subprocesses. Commands
+// are recorded as plain strings so tests read like the button map.
 
 #include <chrono>
+#include <cstddef>
 #include <map>
 #include <optional>
 #include <string>
@@ -16,6 +17,7 @@
 #include "core/hardware_io.hpp"
 #include "core/radio_client.hpp"
 #include "core/scheduler.hpp"
+#include "core/station_memory.hpp"
 #include "core/system_control.hpp"
 
 namespace winampdeck::testing {
@@ -140,6 +142,17 @@ public:
     int shutdowns = 0;
 
     void safeShutdown() override { ++shutdowns; }
+};
+
+// The Last Station, held in memory: what was remembered before this run, and
+// every save in order.
+class FakeStationMemory final : public StationMemory {
+public:
+    std::optional<std::size_t> remembered;
+    std::vector<std::size_t> saves;
+
+    std::optional<std::size_t> rememberedStation() override { return remembered; }
+    void rememberStation(std::size_t station) override { saves.push_back(station); }
 };
 
 }  // namespace winampdeck::testing

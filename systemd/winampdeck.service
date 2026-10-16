@@ -16,7 +16,10 @@ StartLimitBurst=5
 
 [Service]
 # Root, which pigpio needs. Safe Shutdown's `systemctl poweroff` needs it too.
-ExecStart=/usr/local/bin/winampdeck --config-dir /etc/winampdeck --mpv-socket /run/winampdeck-mpv/socket
+ExecStart=/usr/local/bin/winampdeck --config-dir /etc/winampdeck --state-dir /var/lib/winampdeck --mpv-socket /run/winampdeck-mpv/socket
+# /var/lib/winampdeck, created by systemd before the start and kept across
+# reboots: the controller saves the Last Station there (ADR 0007).
+StateDirectory=winampdeck
 Restart=on-failure
 RestartSec=3
 # SIGTERM makes it switch the LEDs, TFT and LCD off and exit.

@@ -1,6 +1,6 @@
 # The Last Station, in a state file the controller writes
 
-Status: accepted (2026-10-03); not built yet
+Status: accepted (2026-10-03); built (2026-10-16)
 
 [ADR 0002](0002-drop-sqlite-and-frontend.md) decided that the Deck keeps no state of its own: everything persistent is the config file and `stations.csv`, both hand-edited and only read by the controller. [ADR 0006](0006-config-files-and-engine-processes.md) put those in `/etc/winampdeck/`. In daily use that turned out to have one cost. After every power-on, the first switch to Internet Radio tunes the first Station in the list, and the Station actually listened to has to be found again.
 

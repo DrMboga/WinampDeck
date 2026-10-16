@@ -249,6 +249,16 @@ public:
     }
 };
 
+// Keeps the Last Station in memory only, so the panel test never touches the
+// Deck's real state file.
+class ConsoleStationMemory final : public StationMemory {
+public:
+    std::optional<std::size_t> rememberedStation() override { return std::nullopt; }
+    void rememberStation(std::size_t station) override {
+        std::cout << "  Last Station: " << station << " (not saved by the panel test)" << std::endl;
+    }
+};
+
 // Presses reach PlayerController through this, so the console shows what was
 // pressed right above what the controller did about it.
 class LoggingHardwareIO final : public HardwareIO, private HardwareIO::Listener {
@@ -481,9 +491,10 @@ int main(int argc, char** argv) {
             ConsoleEngineClient engine(io);
             ConsoleRadioClient radio;
             ConsoleSystemControl system;
+            ConsoleStationMemory lastStation;
             LoggingHardwareIO panel(hardware);
             std::mt19937 random{std::random_device{}()};
-            PlayerController controller(engine, radio, panel, scheduler, system, std::move(stations),
+            PlayerController controller(engine, radio, panel, scheduler, system, lastStation, std::move(stations),
                                         [&random](std::size_t count) { return randomBelow(random, count); });
             controller.start();
             io.run();

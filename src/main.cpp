@@ -1,13 +1,15 @@
 // The WinampDeck controller: PlayerController on the real panel, driving the
 // real Engines. Runs on the Pi as root (pigpio needs it).
 //
-//   winampdeck [--config-dir DIR] [--mpv-socket PATH]
+//   winampdeck [--config-dir DIR] [--state-dir STATE_DIR] [--mpv-socket PATH]
 //
 // Reads, once at startup (ADR 0006):
 //   DIR/config.json    settings; optional, missing ones keep their defaults
 //   DIR/stations.csv   the Stations
 //   DIR/logos/         their logos
-// DIR is /etc/winampdeck unless given. go-librespot's API is expected on
+// DIR is /etc/winampdeck unless given. The Last Station is kept in
+// STATE_DIR/state.json (ADR 0007), STATE_DIR being /var/lib/winampdeck unless
+// given: read the first time Radio becomes the Source, written at Safe Shutdown. go-librespot's API is expected on
 // localhost:3678 and mpv's IPC socket at PATH (default /tmp/mpv-socket);
 // both are separate processes that the controller connects to, and waits for.
 //
@@ -32,6 +34,7 @@
 #include "adapters/deck_artwork.hpp"
 #include "adapters/go_librespot_client.hpp"
 #include "adapters/mpv_client.hpp"
+#include "adapters/state_file.hpp"
 #include "adapters/system_poweroff.hpp"
 #include "core/deck_config.hpp"
 #include "core/player_controller.hpp"
@@ -50,10 +53,12 @@ using namespace winampdeck;
 
 struct Options {
     std::filesystem::path configDir = "/etc/winampdeck";
+    std::filesystem::path stateDir = "/var/lib/winampdeck";
     std::filesystem::path mpvSocket = "/tmp/mpv-socket";
 };
 
-constexpr std::string_view kUsage = "Usage: winampdeck [--config-dir DIR] [--mpv-socket PATH] [--version]\n";
+constexpr std::string_view kUsage =
+    "Usage: winampdeck [--config-dir DIR] [--state-dir DIR] [--mpv-socket PATH] [--version]\n";
 
 }  // namespace
 
@@ -69,8 +74,12 @@ int main(int argc, char** argv) {
             std::cout << kUsage;
             return 0;
         }
-        if ((arg == "--config-dir" || arg == "--mpv-socket") && i + 1 < argc) {
-            (arg == "--config-dir" ? options.configDir : options.mpvSocket) = argv[++i];
+        if (arg == "--config-dir" && i + 1 < argc) {
+            options.configDir = argv[++i];
+        } else if (arg == "--state-dir" && i + 1 < argc) {
+            options.stateDir = argv[++i];
+        } else if (arg == "--mpv-socket" && i + 1 < argc) {
+            options.mpvSocket = argv[++i];
         } else {
             std::cerr << "error: unexpected " << arg << "\n" << kUsage;
             return 2;
@@ -104,8 +113,9 @@ int main(int argc, char** argv) {
         GoLibrespotClient spotify(io);
         MpvClient radio(io, options.mpvSocket);
         SystemPoweroff system;
+        StateFile lastStation(options.stateDir);
         std::mt19937 random{std::random_device{}()};
-        PlayerController controller(spotify, radio, panel, scheduler, system, std::move(stations),
+        PlayerController controller(spotify, radio, panel, scheduler, system, lastStation, std::move(stations),
                                     [&random](std::size_t count) {
                                         return std::uniform_int_distribution<std::size_t>(0, count - 1)(random);
                                     });

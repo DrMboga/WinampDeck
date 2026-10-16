@@ -29,7 +29,8 @@ target_link_libraries(winampdeck_ui
 
 # winampdeck_adapters: production adapters that don't need the Pi (the Asio
 # scheduler, album covers downloaded over HTTP, Station logos from disk, the
-# go-librespot and mpv clients, Safe Shutdown through systemd).
+# go-librespot and mpv clients, Safe Shutdown through systemd, the Last Station
+# in its state file).
 add_library(winampdeck_adapters
     adapters/cover_art.cpp
     adapters/deck_artwork.cpp
@@ -38,6 +39,7 @@ add_library(winampdeck_adapters
     adapters/librespot_events.cpp
     adapters/librespot_rest.cpp
     adapters/mpv_client.cpp
+    adapters/state_file.cpp
     adapters/stb_image.cpp
     adapters/system_poweroff.cpp)
 target_link_libraries(winampdeck_adapters

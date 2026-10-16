@@ -11,6 +11,7 @@
 #include "core/hardware_io.hpp"
 #include "core/radio_client.hpp"
 #include "core/scheduler.hpp"
+#include "core/station_memory.hpp"
 #include "core/system_control.hpp"
 #include "core/types.hpp"
 
@@ -33,8 +34,8 @@ public:
     using RandomIndex = std::function<std::size_t(std::size_t count)>;
 
     PlayerController(EngineClient& engine, RadioClient& radio, HardwareIO& hardware,
-                     Scheduler& scheduler, SystemControl& system, std::vector<Station> stations,
-                     RandomIndex randomIndex);
+                     Scheduler& scheduler, SystemControl& system, StationMemory& memory,
+                     std::vector<Station> stations, RandomIndex randomIndex);
     ~PlayerController();
 
     PlayerController(const PlayerController&) = delete;
@@ -68,6 +69,7 @@ private:
     void autoSwitchToSpotify();
     void updateSpotifyAudibleHere(bool wasAudibleHere);
     void tune(std::size_t station);
+    std::size_t lastStation();
     std::size_t stepStation(std::size_t from, bool forward) const;
 
     // Recomputes what the panel should show and pushes whatever changed.
@@ -80,6 +82,7 @@ private:
     HardwareIO& hardware_;
     Scheduler& scheduler_;
     SystemControl& system_;
+    StationMemory& memory_;
     const std::vector<Station> stations_;
     RandomIndex randomIndex_;
 
@@ -98,7 +101,8 @@ private:
     // Eject switched away from it, and nothing has happened to it since.
     bool resumeSpotifyOnReturn_ = false;
 
-    // Internet Radio. Tuned lazily, the first time Radio becomes the Source.
+    // Internet Radio. Tuned lazily, the first time Radio becomes the Source,
+    // to the Last Station.
     std::optional<std::size_t> tunedStation_;
     bool radioPlaying_ = false;
     std::string streamTitle_;

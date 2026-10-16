@@ -158,6 +158,11 @@ After a power-on, the first switch to Internet Radio tunes the Last Station, the
 
 **Exit criteria:** tune a Station, Safe Shutdown, power-cycle, and the first switch to Internet Radio plays that Station; with the rules covered by tests in CI.
 
+**Status: built (2026-10-16); the check on the Pi is still to do** ([pi-setup.md](pi-setup.md#phase-11--last-station)). What was built:
+- **`StationMemory`** ([src/core/station_memory.hpp](../src/core/station_memory.hpp)), passed to `PlayerController`. The controller reads it the first time Radio becomes the Source, and saves the tuned Station at Safe Shutdown, after "Shutting down" is shown and before the poweroff. Covered by `tests/last_station_test.cpp` with a fake.
+- **`StateFile`** ([src/adapters/state_file.cpp](../src/adapters/state_file.cpp)), the production adapter: `state.json` read leniently, written to a temporary file that's synced and renamed over it. Covered by `tests/state_file_test.cpp` against a temporary directory.
+- **The controller** takes `--state-dir`, default `/var/lib/winampdeck`; its unit has `StateDirectory=winampdeck`. The panel test keeps the Last Station in memory only.
+
 ## Phase 12 — Real spectrum analyzer
 
 Added 2026-10-03. Spec: [.tracker/spectrum-analyzer/spec.md](../.tracker/spectrum-analyzer/spec.md). Research: [.tracker/spectrum-analyzer/research/audio-tap.md](../.tracker/spectrum-analyzer/research/audio-tap.md).
