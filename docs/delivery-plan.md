@@ -174,7 +174,7 @@ The TFT's 15 bars show the sound that's actually playing, in place of today's de
 2. Two hours of continuous play on each Engine, with no dropout by ear and no underrun or xrun in the logs.
 3. A recording from the loopback while music plays sounds like that music.
 
-**Status of Step 1 (2026-10-17): in progress.** The loopback is set up with the HAT as its timer, and both Engines play through it. Checks 1 and 3 have passed, along with a reboot, and check 2 has passed for Radio (2h17m); two hours of Spotify are left. The Pi is left on this setup. Details and results: [pi-setup.md](pi-setup.md#phase-12--real-spectrum-analyzer).
+**Status of Step 1: passed (2026-10-17).** The loopback is set up with the HAT as its timer, and both Engines play through it. All three checks hold: the soak (90 switches, both devices running after each), two hours on each Engine (Radio 2h17m, Spotify 2h10m, no underrun or xrun), and recordings that sound like the music. The setup still lives only on the Pi; Step 2 moves it into the repo. Details and results: [pi-setup.md](pi-setup.md#phase-12--real-spectrum-analyzer). Found along the way, for Step 2: with nothing playing, the loopback gets no timing and a recording read fails, so the recorder has to treat that as silence and reopen. The Pi is left on this setup. Details and results: [pi-setup.md](pi-setup.md#phase-12--real-spectrum-analyzer).
 
 If it fails and can't be fixed by adjusting the configuration, restore the previous ALSA configuration, record the result, and try PipeWire in place of the ALSA mixer as a separate experiment with the same three checks. If both fail, the decorative spectrum stays as it is.
 

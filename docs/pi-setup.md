@@ -1028,7 +1028,7 @@ drwxr-xr-x 2 root root 4096 Oct 16 17:15 /var/lib/winampdeck
 
 **Goal of Step 1** ([delivery plan](delivery-plan.md#phase-12--real-spectrum-analyzer), research in `.tracker/spectrum-analyzer/research/audio-tap.md`): a copy of everything the Engines play, on a loopback sound card the controller can record from, without disturbing the sound. Each Engine plays to a new device, `deck`, which sends the audio both to the existing `dmixer` on the HAT and to a second mixer, `dmixloop`, on the kernel's loopback card (`snd-aloop`). The loopback takes its timing from the HAT (`timer_source`), so there's only one clock. No controller code is involved.
 
-**Status (2026-10-17): in progress.** The tap is set up; checks 1 and 3 have passed, and check 2 has passed for Radio. Two hours of Spotify are left. **The Pi is left on the experimental setup**: both Engines play to `deck`.
+**Status (2026-10-17): Step 1 passed.** The tap is set up and all three checks hold: the soak, two hours on each Engine, and a recording that sounds like the music. The Pi stays on this setup. **The Pi is left on the experimental setup**: both Engines play to `deck`.
 
 ### 14.1 What the Pi had
 
@@ -1117,7 +1117,7 @@ sed -i.before-phase12 's/^audio_device: plug:dmixer$/audio_device: plug:deck/' ~
 sudo systemctl restart winampdeck-librespot
 ```
 
-While an Engine plays, both `/proc/asound/card0/pcm0p/sub0/status` (HAT) and `/proc/asound/card2/pcm0p/sub0/status` (loopback) show `state: RUNNING`, with the same `period_size 6000`. A recording of what's playing:
+While an Engine plays, both `/proc/asound/sndrpihifiberry/pcm0p/sub0/status` (HAT) and `/proc/asound/Loopback/pcm0p/sub0/status` (loopback) show `state: RUNNING`, with the same `period_size 6000`. Read them by card name, not number: the HAT isn't always card 0 (see 14.6). A recording of what's playing:
 
 ```bash
 arecord -D hw:Loopback,1,0 -f S16_LE -r 48000 -c 2 -d 20 /tmp/radio.wav
@@ -1125,7 +1125,7 @@ arecord -D hw:Loopback,1,0 -f S16_LE -r 48000 -c 2 -d 20 /tmp/radio.wav
 
 ### 14.4 The soak through the tap
 
-`~/switch-soak-tap.sh` is the [Phase 4 soak](#72-the-switching-soak-script) adapted to this setup: mpv's socket is `/run/winampdeck-mpv/socket`, and after every switch both the HAT and the loopback must be `RUNNING` (counted as `device-not-running`). It drives the Engines directly, so the controller is stopped first (`sudo systemctl stop winampdeck`), Spotify is started from the phone, and a Station is loaded with `aid auto` then `loadfile` over the socket, as in [7.1](#71-start-both-engines-with-log-files).
+`~/switch-soak-tap.sh` is the [Phase 4 soak](#72-the-switching-soak-script) adapted to this setup: mpv's socket is `/run/winampdeck-mpv/socket`, and after every switch both the HAT and the loopback must be `RUNNING` (counted as `device-not-running`). It finds the two cards by name, `/proc/asound/sndrpihifiberry` and `/proc/asound/Loopback`. It drives the Engines directly, so the controller is stopped first (`sudo systemctl stop winampdeck`), Spotify is started from the phone, and a Station is loaded with `aid auto` then `loadfile` over the socket, as in [7.1](#71-start-both-engines-with-log-files).
 
 ```bash
 ~/switch-soak-tap.sh 10 5 && ~/switch-soak-tap.sh 30 1 && ~/switch-soak-tap.sh 50 0.3
@@ -1158,18 +1158,23 @@ The loopback module stays loaded until the next reboot.
 
 **Found along the way:**
 - **When nothing plays to `deck`, the loopback stops.** It takes its timing from the HAT's stream through `deck`, so with no Engine playing, a recording gets no more data and `arecord` fails with `Input/output error` once its read times out. The controller's recorder in Step 2 must treat a read error or timeout as silence and reopen the device, not give up.
+- **The HAT isn't always card 0.** On the boot of 2026-10-17 the kernel numbered HDMI as card 0 and the HAT as card 1 (the loopback stayed card 2, as set by `index=2`). Everything that plays refers to the HAT by name, `sndrpihifiberry` in `asound.conf` and in `timer_source`, so the Deck was unaffected; only status checks reading `/proc/asound/card0` were misled, and they now use the card names.
 - On the Pi, the original `~/switch-soak.sh` is an older version than the one in [7.2](#72-the-switching-soak-script), without the `device-not-running` count; the tap copy has it.
 
 **Check 2, Radio half (2026-10-17): passed.** Radio played from 09:19:54 to 11:37 (2h17m) after a cold power-on, with the controller running. mpv opened the audio device once, at the start, and logged nothing but Station titles after it; no underrun, xrun or busy message from either Engine, nothing about the loopback or I²S in the kernel log, `throttled=0x0`, both cards `RUNNING` at the end, and smooth by ear throughout. The Pi has no battery-backed clock, so units started at boot carry the time saved at the last shutdown until network time corrects it (here at 09:19:47); read the journal with `-b` rather than `--since` across a boot.
 
-**Still to do: check 2, Spotify half.** Two hours of Spotify, with the controller running and the Deck used normally; note the start and end times. Afterwards:
+**Check 2, Spotify half (2026-10-17): passed.** Spotify played from 12:52 to 15:02 (2h10m) after another cold power-on, with the controller running, smooth by ear throughout. No underrun, xrun or busy message from go-librespot, `throttled=0x0`, both cards `RUNNING` at the end. Two things in the logs, neither about the audio:
+- **Around 13:07 commands arrived 10–20 seconds late**, from the phone and from the buttons alike, then all at once, while the music played on undisturbed. go-librespot logged `failed put state ... context deadline exceeded` at 13:07:30 and 13:07:50: its state reports to Spotify's servers each hung for their full timeout, and commands waited behind them. A network hiccup between the Pi and Spotify, the same family as the `429` during the soak. It didn't recur.
+- One `bcm2835-i2s ... FIFO clear timed out: no PCM clock` at 13:08:09, when a pause closed the HAT: the known harmless warning from [ADR 0004](adr/0004-audio-device-sharing.md).
+
+To repeat check 2, the log commands for a run are:
 
 ```bash
-journalctl -u winampdeck-mpv -u winampdeck-librespot --since "<start>" --until "<end>" | grep -iE "xrun|underrun|underflow|busy"
-journalctl -k --since "<start>" --until "<end>" | grep -iE "aloop|xrun|i2s"
+journalctl -b -u winampdeck-mpv -u winampdeck-librespot | grep -iE "xrun|underrun|underflow|busy"
+journalctl -b -k | grep -iE "aloop|xrun|i2s"
 ```
 
-It passes with no dropout by ear and nothing from either command. If Step 1 passes, record it here and in the delivery plan, and the setup in 14.2 and 14.3 becomes the Deck's real one (to be moved into the repo's unit and an install step as part of Step 2).
+**Step 1 has passed: all three checks hold.** The setup in 14.2 and 14.3 is now the Deck's real one. It still lives only on the Pi; moving it into the repo (the mpv unit, go-librespot's `audio_device`, `asound.conf` and the module options, with an install step) is part of Step 2.
 
 ---
 
@@ -1177,6 +1182,6 @@ It passes with no dropout by ear and nothing from either command. If Step 1 pass
 
 The real controller runs the panel and both Engines (Phase 8), systemd starts all three on boot (Phase 10), and Radio comes back on the Last Station (Phase 11). Next:
 
-- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. Its Step 1, the ALSA loopback tap, is under way: see [Phase 12](#phase-12--real-spectrum-analyzer) above; a two-hour run on Spotify is left.
+- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. Its Step 1, the ALSA loopback tap, has passed ([Phase 12](#phase-12--real-spectrum-analyzer) above). Next is Step 2: the analyzer in the controller, and moving the tap's setup into the repo.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.
