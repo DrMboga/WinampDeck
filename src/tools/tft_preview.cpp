@@ -24,6 +24,7 @@
 
 #include "adapters/deck_artwork.hpp"
 #include "core/stations_csv.hpp"
+#include "ui/demo_spectrum.hpp"
 #include "ui/tft_view.hpp"
 
 namespace {
@@ -170,7 +171,8 @@ int main(int argc, char** argv) {
             }
         }
         // Constructed after the fetch: it takes over the cover callback.
-        ui::TftView view(display, artwork, scheduler);
+        ui::DemoSpectrum spectrum(scheduler);
+        ui::TftView view(display, artwork, scheduler, spectrum);
 
         auto snapshot = [&](const std::string& name) {
             writeBmp(outDir / (name + ".bmp"), display.glass, scale);

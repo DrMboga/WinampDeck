@@ -18,6 +18,7 @@ target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings nlohmann_json:
 # ui::Display and ui::LcdDisplay interfaces.
 add_library(winampdeck_ui
     ui/canvas.cpp
+    ui/demo_spectrum.cpp
     ui/display.cpp
     ui/font5x7.cpp
     ui/image.cpp

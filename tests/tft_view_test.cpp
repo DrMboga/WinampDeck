@@ -7,11 +7,13 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
 #include "fakes.hpp"
 #include "ui/canvas.hpp"
+#include "ui/demo_spectrum.hpp"
 #include "ui/tft_view.hpp"
 
 namespace winampdeck::ui {
@@ -88,6 +90,14 @@ std::vector<Station> manyStations(int count) {
     return stations;
 }
 
+// Whatever bar levels the test sets.
+class FakeSpectrum final : public SpectrumSource {
+public:
+    SpectrumBands::Levels current{};
+
+    SpectrumBands::Levels levels() override { return current; }
+};
+
 class TftViewTest : public ::testing::Test {
 protected:
     TftViewTest() {
@@ -145,10 +155,37 @@ protected:
         return screen;
     }
 
+    // The spectrum bar as drawn: from the bottom of its column up, which
+    // pixels are lit.
+    std::vector<bool> barColumn(int bar) const {
+        std::vector<bool> lit;
+        const int x = kSpectrumArea.x + bar * 4;
+        for (int y = kSpectrumArea.bottom() - 1; y >= kSpectrumArea.y; --y) {
+            lit.push_back(display.glass.at(x, y) != 0);
+        }
+        return lit;
+    }
+
+    // How tall the bar is: lit pixels up from the bottom, without a gap.
+    int barHeight(int bar) const {
+        const auto lit = barColumn(bar);
+        return static_cast<int>(std::ranges::find(lit, false) - lit.begin());
+    }
+
+    // How high its peak marker is: the topmost lit pixel.
+    int peakHeight(int bar) const {
+        const auto lit = barColumn(bar);
+        const auto top = std::ranges::find(lit.rbegin(), lit.rend(), true);
+        return static_cast<int>(lit.rend() - top);
+    }
+
+    void nextFrame() { scheduler.advance(TftView::kFrameInterval); }
+
     RecordingDisplay display;
     FakeArtwork artwork;
     ManualScheduler scheduler;
-    TftView view{display, artwork, scheduler};
+    FakeSpectrum spectrum;
+    TftView view{display, artwork, scheduler, spectrum};
 };
 
 TEST_F(TftViewTest, TheFirstScreenIsSentWhole) {
@@ -248,10 +285,77 @@ TEST_F(TftViewTest, LongListeningShowsHours) {
     EXPECT_EQ(region(kClockArea), clockReading("2h05"));
 }
 
-TEST_F(TftViewTest, TheSpectrumMovesWhilePlayingAndSettlesWhenStopped) {
+TEST_F(TftViewTest, TheSpectrumShowsTheLevelsItIsGiven) {
+    spectrum.current = {1.0f, 0.5f, 0.0f, 0.25f};
+    spectrum.current[14] = 0.75f;
     view.show(radio("Alpha"));
+
+    nextFrame();
+
+    // Levels 0 to 1 over the area's 57 pixels.
+    EXPECT_EQ(barHeight(0), 57);
+    EXPECT_EQ(barHeight(1), 29);
+    EXPECT_EQ(barHeight(2), 0);
+    EXPECT_EQ(barHeight(3), 14);
+    EXPECT_EQ(barHeight(14), 43);
+}
+
+TEST_F(TftViewTest, FallingLevelsLowerTheBarsOverSeveralFramesWhileThePeakHangs) {
+    spectrum.current[0] = 1.0f;
+    view.show(radio("Alpha"));
+    nextFrame();
+    spectrum.current[0] = 0.0f;
+
+    nextFrame();
+    EXPECT_EQ(barHeight(0), 53);  // Falls 4 pixels a frame...
+    EXPECT_EQ(peakHeight(0), 57);  // ...while the peak marker stays.
+
+    for (int frame = 2; frame <= 8; ++frame) {
+        nextFrame();
+    }
+    EXPECT_EQ(barHeight(0), 25);
+    EXPECT_EQ(peakHeight(0), 57);  // Held for 8 frames,
+
+    nextFrame();
+    EXPECT_EQ(peakHeight(0), 56);  // then drops a pixel a frame.
+
+    runFor(5s);
+    EXPECT_TRUE(blank(kSpectrumArea));
+}
+
+TEST_F(TftViewTest, ALevelThatRisesJumpsStraightUp) {
+    view.show(radio("Alpha"));
+    nextFrame();
+    spectrum.current[5] = 1.0f;
+
+    nextFrame();
+
+    EXPECT_EQ(barHeight(5), 57);
+}
+
+TEST_F(TftViewTest, FlatLevelsWhilePlayingDrawNoBars) {
+    // As when the loopback isn't there to listen to.
+    view.show(radio("Alpha"));
+    runFor(500ms);
+
+    EXPECT_TRUE(blank(kSpectrumArea));
+}
+
+TEST_F(TftViewTest, PausedAndStoppedDrawNoBarsWhateverTheSourceHears) {
+    spectrum.current.fill(1.0f);
+
+    view.show(radio("Alpha", PlaybackStatus::Paused));
+    runFor(500ms);
     EXPECT_TRUE(blank(kSpectrumArea));
 
+    view.show(NowPlayingScreen{});
+    runFor(500ms);
+    EXPECT_TRUE(blank(kSpectrumArea));
+}
+
+TEST_F(TftViewTest, TheSpectrumSettlesWhenStoppedAndStopsRedrawing) {
+    spectrum.current.fill(0.8f);
+    view.show(radio("Alpha"));
     runFor(500ms);
     EXPECT_FALSE(blank(kSpectrumArea));
 
@@ -259,6 +363,20 @@ TEST_F(TftViewTest, TheSpectrumMovesWhilePlayingAndSettlesWhenStopped) {
     runFor(5s);
     EXPECT_TRUE(blank(kSpectrumArea));
     EXPECT_EQ(scheduler.pending(), 0u);  // Nothing left to animate.
+}
+
+TEST(DemoSpectrumTest, PlaysSomethingThatMoves) {
+    ManualScheduler scheduler;
+    DemoSpectrum demo(scheduler);
+
+    std::set<SpectrumBands::Levels> seen;
+    for (int frame = 0; frame < 40; ++frame) {
+        const auto levels = demo.levels();
+        EXPECT_TRUE(std::ranges::any_of(levels, [](float level) { return level > 0.3f; })) << "frame " << frame;
+        seen.insert(levels);
+        scheduler.advance(TftView::kFrameInterval);
+    }
+    EXPECT_GT(seen.size(), 30u);
 }
 
 TEST_F(TftViewTest, AStoppedDeckDoesNotAnimate) {

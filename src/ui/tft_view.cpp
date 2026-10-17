@@ -1,6 +1,7 @@
 #include "ui/tft_view.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <variant>
 
@@ -78,10 +79,11 @@ Color spectrumColor(int fromBottom, int height) {
 
 }  // namespace
 
-TftView::TftView(Display& display, Artwork& artwork, Scheduler& scheduler)
+TftView::TftView(Display& display, Artwork& artwork, Scheduler& scheduler, SpectrumSource& spectrum)
     : display_(display),
       artwork_(artwork),
       scheduler_(scheduler),
+      spectrumSource_(spectrum),
       frame_(Display::kWidth, Display::kHeight),
       shown_(Display::kWidth, Display::kHeight),
       canvas_(frame_) {
@@ -200,9 +202,11 @@ void TftView::scheduleFrame() {
 void TftView::onFrame() {
     frameTimer_.reset();
     if (const auto* nowPlaying = std::get_if<NowPlayingScreen>(&screen_)) {
-        spectrum_.step(nowPlaying->source != Source::Stopped &&
-                           nowPlaying->status == PlaybackStatus::Playing,
-                       kSpectrumArea.height);
+        // Only while playing: paused and Stopped fall to nothing, whatever
+        // the source still hears.
+        const bool playing =
+            nowPlaying->source != Source::Stopped && nowPlaying->status == PlaybackStatus::Playing;
+        spectrum_.step(playing ? spectrumSource_.levels() : SpectrumBands::Levels{}, kSpectrumArea.height);
     }
     render();
     flush();
@@ -425,18 +429,10 @@ void TftView::drawStationList(const StationListScreen& screen) {
 
 // --- Spectrum ----------------------------------------------------------------------
 
-void TftView::Spectrum::step(bool playing, int height) {
+void TftView::Spectrum::step(const SpectrumBands::Levels& levels, int height) {
     for (std::size_t bar = 0; bar < bars.size(); ++bar) {
-        int target = 0;
-        if (playing) {
-            // xorshift32: cheap, and deterministic for tests.
-            random ^= random << 13;
-            random ^= random >> 17;
-            random ^= random << 5;
-            // Lower bands run taller, like most music.
-            const int reach = height * (100 - static_cast<int>(bar) * 45 / kSpectrumBars) / 100;
-            target = static_cast<int>(random % static_cast<std::uint32_t>(reach + 1));
-        }
+        const int target =
+            std::clamp(static_cast<int>(std::lround(levels[bar] * static_cast<float>(height))), 0, height);
         bars[bar] = std::max(target, bars[bar] - kBarFall);
         bars[bar] = std::max(bars[bar], 0);
 

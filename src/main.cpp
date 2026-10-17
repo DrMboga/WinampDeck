@@ -105,7 +105,9 @@ int main(int argc, char** argv) {
         tftConfig.brightness = config.tftBacklightLevel();
         St7735 tft(tftConfig);
         DeckArtwork artwork(io, options.configDir / "logos");
-        ui::TftView tftView(tft, artwork, scheduler);
+        // Flat bars until the analyzer listens to the loopback (Phase 12).
+        ui::SilentSpectrum spectrum;
+        ui::TftView tftView(tft, artwork, scheduler, spectrum);
         Hd44780 lcd;
         ui::LcdView lcdView(lcd, scheduler, config.lcdScrollStep);
         PigpioHardwareIO panel(io, &tftView, &lcdView);

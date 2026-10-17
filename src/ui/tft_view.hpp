@@ -11,14 +11,16 @@
 #include "ui/artwork.hpp"
 #include "ui/canvas.hpp"
 #include "ui/display.hpp"
+#include "ui/spectrum_source.hpp"
 
 namespace winampdeck::ui {
 
 // Draws PlayerController's Screen on the TFT, Winamp style:
 //
 // - Now Playing: the album cover or Station logo, a play/pause/stop indicator,
-//   the elapsed time in big digits, a decorative spectrum, Spotify's progress
-//   bar, and two lines of text that scroll when they don't fit.
+//   the elapsed time in big digits, the spectrum of what's playing (levels
+//   from a SpectrumSource), Spotify's progress bar, and two lines of text
+//   that scroll when they don't fit.
 // - Station List: the Stations with logo thumbnails, the highlighted one in
 //   Winamp's playlist blue and the tuned one in white.
 //
@@ -32,9 +34,9 @@ public:
     // Scrolling text moves one pixel per step, after a pause at the start.
     static constexpr std::chrono::milliseconds kScrollStep{50};
     static constexpr std::chrono::milliseconds kScrollDelay{1500};
-    static constexpr int kSpectrumBars = 15;
+    static constexpr int kSpectrumBars = static_cast<int>(SpectrumBands::kBars);
 
-    TftView(Display& display, Artwork& artwork, Scheduler& scheduler);
+    TftView(Display& display, Artwork& artwork, Scheduler& scheduler, SpectrumSource& spectrum);
     ~TftView();
 
     TftView(const TftView&) = delete;
@@ -49,13 +51,14 @@ private:
         std::chrono::milliseconds since{0};
     };
 
+    // The bars as drawn, in pixels: they jump up to a new level, fall back
+    // slowly, and leave a peak marker that hangs before it drops, like Winamp's.
     struct Spectrum {
         std::array<int, kSpectrumBars> bars{};
         std::array<int, kSpectrumBars> peaks{};
         std::array<int, kSpectrumBars> peakHold{};
-        std::uint32_t random = 0x2545F491;
 
-        void step(bool playing, int height);
+        void step(const SpectrumBands::Levels& levels, int height);
         bool idle() const;
     };
 
@@ -82,6 +85,7 @@ private:
     Display& display_;
     Artwork& artwork_;
     Scheduler& scheduler_;
+    SpectrumSource& spectrumSource_;
 
     Screen screen_;
     Image frame_;

@@ -23,6 +23,9 @@
 //       tracks with real album covers. Safe Shutdown is only printed, never
 //       carried out.
 //
+// With no audio to listen to, the spectrum in both TFT modes shows synthetic
+// music through the real analyzer arithmetic (ui::DemoSpectrum).
+//
 // TFT OPTIONS:
 //   --data DIR         where stations.csv and logos/ are (default: data)
 //   --madctl 0xNN      ST7735 rotation and colour order (default: 0xA0)
@@ -68,6 +71,7 @@
 #include "hw/pigpio_session.hpp"
 #include "hw/st7735.hpp"
 #include "ui/canvas.hpp"
+#include "ui/demo_spectrum.hpp"
 #include "ui/lcd_text.hpp"
 #include "ui/lcd_view.hpp"
 #include "ui/tft_view.hpp"
@@ -372,7 +376,8 @@ void runTftDemo(asio::io_context& io, const Options& options) {
 
     AsioScheduler scheduler(io);
     DeckArtwork artwork(io, options.data / "logos");
-    ui::TftView view(tft, artwork, scheduler);
+    ui::DemoSpectrum spectrum(scheduler);
+    ui::TftView view(tft, artwork, scheduler, spectrum);
     const auto screens = demoScreens(stations);
     std::size_t next = 0;
     asio::steady_timer timer(io, 10s);
@@ -484,7 +489,8 @@ int main(int argc, char** argv) {
             AsioScheduler scheduler(io);
             St7735 tft(options.tft);
             DeckArtwork artwork(io, options.data / "logos");
-            ui::TftView view(tft, artwork, scheduler);
+            ui::DemoSpectrum spectrum(scheduler);
+            ui::TftView view(tft, artwork, scheduler, spectrum);
             Hd44780 lcd;
             ui::LcdView lcdView(lcd, scheduler, options.lcdScrollStep);
             PigpioHardwareIO hardware(io, &view, &lcdView);
