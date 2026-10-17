@@ -33,6 +33,7 @@
 #include "adapters/asio_scheduler.hpp"
 #include "adapters/deck_artwork.hpp"
 #include "adapters/go_librespot_client.hpp"
+#include "adapters/loopback_spectrum.hpp"
 #include "adapters/mpv_client.hpp"
 #include "adapters/state_file.hpp"
 #include "adapters/system_poweroff.hpp"
@@ -105,8 +106,9 @@ int main(int argc, char** argv) {
         tftConfig.brightness = config.tftBacklightLevel();
         St7735 tft(tftConfig);
         DeckArtwork artwork(io, options.configDir / "logos");
-        // Flat bars until the analyzer listens to the loopback (Phase 12).
-        ui::SilentSpectrum spectrum;
+        // The spectrum of what's playing, from the loopback card's copy of it
+        // (Phase 12). Flat bars, and one line in the log, if it isn't there.
+        LoopbackSpectrum spectrum("hw:Loopback,1,0");
         ui::TftView tftView(tft, artwork, scheduler, spectrum);
         Hd44780 lcd;
         ui::LcdView lcdView(lcd, scheduler, config.lcdScrollStep);

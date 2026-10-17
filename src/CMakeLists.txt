@@ -77,9 +77,16 @@ if(WINAMPDECK_WITH_PIGPIO)
         tools/panel_test.cpp)
     target_link_libraries(winampdeck-panel-test PRIVATE winampdeck_hw winampdeck_warnings)
 
+    # The spectrum analyzer's recorder: the loopback card, through ALSA.
+    add_library(winampdeck_loopback
+        adapters/loopback_spectrum.cpp)
+    target_link_libraries(winampdeck_loopback
+        PUBLIC winampdeck_ui
+        PRIVATE winampdeck_warnings WinampDeck::alsa Threads::Threads)
+
     # winampdeck: the controller itself, wiring PlayerController to the real
     # panel and Engines (go-librespot, mpv).
     add_executable(winampdeck
         main.cpp)
-    target_link_libraries(winampdeck PRIVATE winampdeck_hw winampdeck_warnings)
+    target_link_libraries(winampdeck PRIVATE winampdeck_hw winampdeck_loopback winampdeck_warnings)
 endif()

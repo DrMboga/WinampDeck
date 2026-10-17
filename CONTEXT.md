@@ -33,7 +33,7 @@ The Station that was tuned when the Deck last did a Safe Shutdown, remembered ac
 _Avoid_: saved station, default station, favourite
 
 **Now Playing**:
-The TFT's normal screen mode: what the audible Source is playing (album cover or Station logo, play status, elapsed time, track or stream text) under the Winamp-style skin, with its decorative spectrum.
+The TFT's normal screen mode: what the audible Source is playing (album cover or Station logo, play status, elapsed time, track or stream text) under the Winamp-style skin, with a spectrum of the sound actually playing.
 _Avoid_: main screen, home screen
 
 **Station List**:

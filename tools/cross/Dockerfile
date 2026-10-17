@@ -13,6 +13,17 @@ RUN apt-get update \
         build-essential crossbuild-essential-arm64 cmake ninja-build make git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# ALSA's client library, which the spectrum analyzer records the loopback
+# with (Phase 12): Debian's arm64 package, the same 1.2.14 as the Pi's, copied
+# out like pigpio below, so the cross-build only finds the arm64 copy.
+RUN dpkg --add-architecture arm64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libasound2-dev:arm64 \
+    && mkdir -p /opt/alsa/include /opt/alsa/lib \
+    && cp -r /usr/include/alsa /opt/alsa/include/ \
+    && cp -P /usr/lib/aarch64-linux-gnu/libasound.so* /opt/alsa/lib/ \
+    && rm -rf /var/lib/apt/lists/*
+
 # pigpio isn't packaged for Trixie, so the Pi's copy was built from source
 # (docs/pi-setup.md, 8.3). This cross-builds the same commit, only to compile
 # and link against: at runtime the binaries use the Pi's own libpigpio.so.1.

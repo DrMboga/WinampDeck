@@ -105,6 +105,18 @@ if(WINAMPDECK_WITH_PIGPIO)
     target_include_directories(winampdeck_pigpio SYSTEM INTERFACE ${PIGPIO_INCLUDE_DIR})
     target_link_libraries(winampdeck_pigpio INTERFACE ${PIGPIO_LIBRARY} Threads::Threads)
     target_compile_definitions(winampdeck_pigpio INTERFACE WINAMPDECK_WITH_PIGPIO)
+
+    # --- ALSA ----------------------------------------------------------------------
+    # The client library the spectrum analyzer records the loopback card with
+    # (Phase 12). A system library like pigpio, and only needed by the Pi's
+    # controller, so it comes with the same switch.
+    find_path(ALSA_INCLUDE_DIR alsa/asoundlib.h REQUIRED)
+    find_library(ALSA_LIBRARY asound REQUIRED)
+
+    add_library(winampdeck_alsa INTERFACE)
+    add_library(WinampDeck::alsa ALIAS winampdeck_alsa)
+    target_include_directories(winampdeck_alsa SYSTEM INTERFACE ${ALSA_INCLUDE_DIR})
+    target_link_libraries(winampdeck_alsa INTERFACE ${ALSA_LIBRARY})
 endif()
 
 # --- GoogleTest (tests only) -----------------------------------------------------

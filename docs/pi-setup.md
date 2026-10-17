@@ -994,7 +994,7 @@ mpv: connected to /run/winampdeck-mpv/socket
 
 ## Phase 11 — Last Station
 
-**Goal** ([delivery plan](delivery-plan.md#phase-11--last-station), [ADR 0007](adr/0007-last-station-state-file.md)): after a power-on, the first switch to Internet Radio tunes the Station that was tuned at the last Safe Shutdown. The controller keeps it in `/var/lib/winampdeck/state.json`, as a position in `stations.csv` counted from zero: `{"station":12}`. systemd creates the directory for the controller's unit (`StateDirectory=`); `install.sh` and `deploy-pi.sh` never touch it.
+**Goal** ([delivery plan](delivery-plan.md#phase-11--last-station-), [ADR 0007](adr/0007-last-station-state-file.md)): after a power-on, the first switch to Internet Radio tunes the Station that was tuned at the last Safe Shutdown. The controller keeps it in `/var/lib/winampdeck/state.json`, as a position in `stations.csv` counted from zero: `{"station":12}`. systemd creates the directory for the controller's unit (`StateDirectory=`); `install.sh` and `deploy-pi.sh` never touch it.
 
 ### 13.1 Deploy and install
 
@@ -1030,9 +1030,9 @@ drwxr-xr-x 2 root root 4096 Oct 16 17:15 /var/lib/winampdeck
 
 ## Phase 12 — Real spectrum analyzer
 
-**Goal of Step 1** ([delivery plan](delivery-plan.md#phase-12--real-spectrum-analyzer), research in `.tracker/spectrum-analyzer/research/audio-tap.md`): a copy of everything the Engines play, on a loopback sound card the controller can record from, without disturbing the sound. Each Engine plays to a new device, `deck`, which sends the audio both to the existing `dmixer` on the HAT and to a second mixer, `dmixloop`, on the kernel's loopback card (`snd-aloop`). The loopback takes its timing from the HAT (`timer_source`), so there's only one clock. No controller code is involved.
+**Goal of Step 1** ([delivery plan](delivery-plan.md#phase-12--real-spectrum-analyzer-), research in `.tracker/spectrum-analyzer/research/audio-tap.md`): a copy of everything the Engines play, on a loopback sound card the controller can record from, without disturbing the sound. Each Engine plays to a new device, `deck`, which sends the audio both to the existing `dmixer` on the HAT and to a second mixer, `dmixloop`, on the kernel's loopback card (`snd-aloop`). The loopback takes its timing from the HAT (`timer_source`), so there's only one clock. No controller code is involved.
 
-**Status (2026-10-17): Step 1 passed.** The tap is set up and all three checks hold: the soak, two hours on each Engine, and a recording that sounds like the music. The Pi stays on this setup. **The Pi is left on the experimental setup**: both Engines play to `deck`.
+**Status (2026-10-17): done.** Step 1, the tap, passed all three checks: the soak, two hours on each Engine, and a recording that sounds like the music. Step 2, the analyzer in the controller, is built and checked on the Deck ([14.9](#149-the-analyzer-on-the-deck)); long play with it running is part of the Phase 9 soak. **The Pi is left on the experimental setup**: both Engines play to `deck`.
 
 ### 14.1 What the Pi had
 
@@ -1203,12 +1203,26 @@ On this Pi, the first `install.sh` after Step 2 should change nothing audible: i
 
 **Result (2026-10-17), Pi 3 at 1.2 GHz, controller running:** 140 µs per block, the same in three runs; at 20 blocks a second, 0.28% of one core. The research's estimate, from another ARM chip, was 50–150 µs.
 
+### 14.9 The analyzer on the Deck
+
+The controller records `hw:Loopback,1,0` and logs `Spectrum: listening to hw:Loopback,1,0` once it does. Deploy and `install.sh` as usual; nothing else to set up.
+
+**How the loopback delivers audio (measured before building the recorder).** Whatever period the recorder asks for, it gets the HAT's: 6000 frames, arriving exactly every 125 ms. Measured with silence played to `deck` (inaudible, but it gives the loopback its timing) and `arecord --period-size=1200 -v`, timing each chunk read. So the recorder analyses each 125 ms chunk four times and releases the results over the next 125 ms, rather than updating the bars 8 times a second.
+
+**Results (2026-10-17):**
+- **The bars follow the music**, on Radio and on Spotify: bass on the left, the middle and right bars with the rest. They move smoothly, and no lag behind the music was noticed.
+- **Pause and Source switches**: the bars fall to nothing and come back with the music.
+- **mpv restarted** (`sudo systemctl restart winampdeck-mpv`) while Radio played: the bars fell, and followed the music again once the controller had reconnected (2 s) and the Station was back. The recorder logged nothing; it didn't need to reopen.
+- **The loopback unavailable**: with its recording end held by an `arecord -N` started while the controller was stopped, the controller started normally, Radio played, the bars stayed flat, and the log had exactly one line in a minute of retries every 2 s: `Spectrum: can't open hw:Loopback,1,0: Device or resource busy; the bars stay flat, retrying`. One second after the `arecord` was stopped: `Spectrum: listening to hw:Loopback,1,0`, and the bars moved again with nothing restarted.
+- **CPU**, per thread over 30 s of Radio: the recorder 0.9% of one core, the event loop (including drawing the TFT at 20 frames a second) 3.6%, pigpio's own thread 5.7%; the controller 10.2% in all, load average 0.26, `throttled=0x0`.
+
+**Not yet run:** long play with the analyzer running, to show the audio stays as clean as in Step 1's checks. It's part of the Phase 9 soak.
+
 ---
 
 ## What's next
 
-The real controller runs the panel and both Engines (Phase 8), systemd starts all three on boot (Phase 10), and Radio comes back on the Last Station (Phase 11). Next:
+The real controller runs the panel and both Engines (Phase 8), systemd starts all three on boot (Phase 10), Radio comes back on the Last Station (Phase 11), and the spectrum shows the music actually playing (Phase 12). Next:
 
-- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. Its Step 1, the ALSA loopback tap, has passed ([Phase 12](#phase-12--real-spectrum-analyzer) above). Next is Step 2: the analyzer in the controller, and moving the tap's setup into the repo.
-- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
+- [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown), Phase 11's pull-the-plug check, and Phase 12's: the audio as clean as before over long play with the analyzer running.
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.

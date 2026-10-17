@@ -131,7 +131,7 @@ Everything above, running together on the real Pi, HAT, and panel — inside the
 
 **Exit criteria:** the Deck runs correctly, unattended, for a multi-day soak.
 
-**Order (decided 2026-10-03):** this phase now comes last, after [Phase 11](#phase-11--last-station) and [Phase 12](#phase-12--real-spectrum-analyzer). Phase 12 changes the audio setup, and the soak only means something on the setup the finished Deck uses. The soak also picks up the checks Phase 10 left out: a killed Engine or controller, a config typo under systemd, and a power cut without a Safe Shutdown.
+**Order (decided 2026-10-03):** this phase now comes last, after [Phase 11](#phase-11--last-station-) and [Phase 12](#phase-12--real-spectrum-analyzer-). Phase 12 changes the audio setup, and the soak only means something on the setup the finished Deck uses. The soak also picks up the checks Phase 10 left out: a killed Engine or controller, a config typo under systemd, and a power cut without a Safe Shutdown; and Phase 12's: the audio as clean as before over long play with the spectrum analyzer running.
 
 ## Phase 10 — Packaging ✅
 
@@ -163,7 +163,7 @@ After a power-on, the first switch to Internet Radio tunes the Last Station, the
 - **`StateFile`** ([src/adapters/state_file.cpp](../src/adapters/state_file.cpp)), the production adapter: `state.json` read leniently, written to a temporary file that's synced and renamed over it. Covered by `tests/state_file_test.cpp` against a temporary directory.
 - **The controller** takes `--state-dir`, default `/var/lib/winampdeck`; its unit has `StateDirectory=winampdeck`. The panel test keeps the Last Station in memory only.
 
-## Phase 12 — Real spectrum analyzer
+## Phase 12 — Real spectrum analyzer ✅
 
 Added 2026-10-03. Spec: [.tracker/spectrum-analyzer/spec.md](../.tracker/spectrum-analyzer/spec.md). Research: [.tracker/spectrum-analyzer/research/audio-tap.md](../.tracker/spectrum-analyzer/research/audio-tap.md).
 
@@ -187,6 +187,12 @@ If it fails and can't be fixed by adjusting the configuration, restore the previ
 
 **Exit criteria:** the bars follow the music for both Sources and fall to nothing on pause and mute; the audio is as clean as before (the three checks above still hold with the analyzer running); and with the loopback unavailable the bars stay flat while everything else works.
 
+**Status of Step 2 (2026-10-17): built and checked on the Pi**, apart from the long audio checks with the analyzer running, which move into the Phase 9 soak. Results: [pi-setup.md](pi-setup.md#149-the-analyzer-on-the-deck). On the Deck the bars follow Radio and Spotify, bass on the left; they fall on pause and on a Source switch, recover by themselves after mpv is restarted, and stay flat, with one log line, while the loopback can't be opened, coming back within 2 seconds once it can. The recorder costs 0.9% of one core. What was built:
+- **The tap's setup in the repo**: [audio/](../audio/) (`asound.conf` and the loopback module's files) and the mpv unit on `plug:deck`, installed by `install.sh`.
+- **`SpectrumBands`** ([src/core/spectrum_bands.cpp](../src/core/spectrum_bands.cpp)): the band arithmetic, with KISS FFT; tested on synthetic tones. 140 µs per block on the Pi 3.
+- **`SpectrumSource`** and the TFT view: the bars draw the levels they're given, with Winamp's rise, fall and hanging peaks; the random animation is gone. `DemoSpectrum` stands in for the preview and the panel test.
+- **`LoopbackSpectrum`** ([src/adapters/loopback_spectrum.cpp](../src/adapters/loopback_spectrum.cpp)): the recorder, Pi-only, with ALSA's library in the cross-build image. The loopback delivers audio a HAT period at a time (6000 frames every 125 ms), so each period is analysed four times and released over the next one, 125 ms behind. On the Deck no lag behind the music was noticed; that delay is the value to adjust if one ever is.
+
 ## Deliberately not on this plan
 
-The plywood enclosure build is physical work tracked separately from software delivery. The web/OAuth stack, SQLite, and play history are out of scope per the spec — not deferred to a later phase, just not part of this plan at all. The real spectrum analyzer was on this list until 2026-10-03; it's now [Phase 12](#phase-12--real-spectrum-analyzer).
+The plywood enclosure build is physical work tracked separately from software delivery. The web/OAuth stack, SQLite, and play history are out of scope per the spec — not deferred to a later phase, just not part of this plan at all. The real spectrum analyzer was on this list until 2026-10-03; it's now [Phase 12](#phase-12--real-spectrum-analyzer-).
