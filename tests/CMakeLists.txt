@@ -23,7 +23,8 @@ add_executable(winampdeck_tests
     lcd_view_test.cpp
     cover_art_test.cpp
     last_station_test.cpp
-    state_file_test.cpp)
+    state_file_test.cpp
+    spectrum_bands_test.cpp)
 target_link_libraries(winampdeck_tests PRIVATE
     winampdeck_core
     winampdeck_ui

@@ -76,6 +76,23 @@ add_library(winampdeck_stb INTERFACE)
 add_library(WinampDeck::stb ALIAS winampdeck_stb)
 target_include_directories(winampdeck_stb SYSTEM INTERFACE ${stb_SOURCE_DIR})
 
+# --- KISS FFT --------------------------------------------------------------------
+# The Fourier transform behind the spectrum analyzer (Phase 12). Plain C, not
+# header-only: its two files for the real-input transform are compiled here,
+# in single precision (float, its default), without our warnings.
+FetchContent_Declare(kissfft
+    URL https://github.com/mborgerding/kissfft/archive/refs/tags/131.2.0.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR _no_cmake)
+FetchContent_MakeAvailable(kissfft)
+
+add_library(winampdeck_kissfft STATIC
+    ${kissfft_SOURCE_DIR}/kiss_fft.c
+    ${kissfft_SOURCE_DIR}/kiss_fftr.c)
+add_library(WinampDeck::kissfft ALIAS winampdeck_kissfft)
+target_include_directories(winampdeck_kissfft SYSTEM PUBLIC ${kissfft_SOURCE_DIR})
+target_link_libraries(winampdeck_kissfft PRIVATE m)
+
 # --- pigpio ----------------------------------------------------------------------
 # A system library installed on the Pi (see docs/pi-setup.md), not fetched: it
 # drives the SoC's peripherals directly and is useless on any other machine.

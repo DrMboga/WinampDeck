@@ -1191,7 +1191,17 @@ Since Step 2 the setup is in the repo, and `install.sh` installs it:
 | [systemd/winampdeck-mpv.service](../systemd/winampdeck-mpv.service) | `/etc/systemd/system/` | plays to `plug:deck` itself; the experiment's drop-in is removed |
 | go-librespot's `audio_device: plug:deck` | `/home/pi/go-librespot/config.yml` | yours, as before; warns if it isn't `plug:deck` |
 
-On this Pi, the first `install.sh` after Step 2 should change nothing audible: it reinstalls the same module files, keeps `/etc/asound.conf`, and restarts mpv on the same device without the drop-in.
+On this Pi, the first `install.sh` after Step 2 should change nothing audible: it reinstalls the same module files, keeps `/etc/asound.conf`, and restarts mpv on the same device without the drop-in. **Checked (2026-10-17):** no warnings, mpv runs from the unit alone, and Radio reaches the loopback (a 3-second recording peaked at 24371).
+
+### 14.8 The cost of the analyzer's arithmetic
+
+`winampdeck-spectrum-bench` times `SpectrumBands::levels`, the transform and band sums for one 2048-frame block, on noise. It's built with the other binaries (`build-pi/`, after a cross-build) and runs as `pi`, from the home directory (`/tmp` doesn't allow running programs):
+
+```bash
+~/winampdeck-spectrum-bench 2000
+```
+
+**Result (2026-10-17), Pi 3 at 1.2 GHz, controller running:** 140 µs per block, the same in three runs; at 20 blocks a second, 0.28% of one core. The research's estimate, from another ARM chip, was 50–150 µs.
 
 ---
 

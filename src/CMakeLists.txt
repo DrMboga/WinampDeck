@@ -5,11 +5,12 @@
 add_library(winampdeck_core
     core/deck_config.cpp
     core/player_controller.cpp
+    core/spectrum_bands.cpp
     core/stations_csv.cpp
     core/version.cpp)
 target_include_directories(winampdeck_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(winampdeck_core PRIVATE WINAMPDECK_VERSION="${PROJECT_VERSION}")
-target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings nlohmann_json::nlohmann_json)
+target_link_libraries(winampdeck_core PRIVATE winampdeck_warnings nlohmann_json::nlohmann_json WinampDeck::kissfft)
 
 # winampdeck_ui: what the TFT and LCD show, worked out in memory (font, canvas,
 # the Now Playing and Station List views, the LCD's scrolling row). Hardware-free
@@ -51,6 +52,11 @@ target_link_libraries(winampdeck_adapters
 add_executable(winampdeck-tft-preview
     tools/tft_preview.cpp)
 target_link_libraries(winampdeck-tft-preview PRIVATE winampdeck_adapters winampdeck_warnings)
+
+# Times the spectrum analyzer's arithmetic, to measure its cost on the Pi.
+add_executable(winampdeck-spectrum-bench
+    tools/spectrum_bench.cpp)
+target_link_libraries(winampdeck-spectrum-bench PRIVATE winampdeck_core winampdeck_warnings)
 
 # winampdeck_hw: the pigpio-backed panel (buttons/LEDs on the MCP23017, the
 # ST7735 TFT, the HD44780 LCD). Only builds on the Pi.
