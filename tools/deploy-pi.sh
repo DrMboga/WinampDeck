@@ -12,6 +12,7 @@
 #   winampdeck, winampdeck-panel-test   the binaries
 #   data/                               config.json, stations.csv, logos/
 #   systemd/                            the service units
+#   audio/                              asound.conf and the loopback module's files
 #   install.sh                          installs all of the above (pi-install.sh)
 #   VERSION                             the commit they were built from
 # Nothing outside that directory is touched: sudo on the Pi asks for a
@@ -84,7 +85,7 @@ if [ "$deploy" = 1 ]; then
     ssh "$pi" 'rm -rf ~/winampdeck-deploy/.incoming && mkdir -p ~/winampdeck-deploy/.incoming'
     scp -q "$out/winampdeck" "$out/winampdeck-panel-test" "$out/VERSION" "$pi:winampdeck-deploy/.incoming/"
     scp -q tools/pi-install.sh "$pi:winampdeck-deploy/.incoming/install.sh"
-    scp -q -r data systemd "$pi:winampdeck-deploy/"
+    scp -q -r data systemd audio "$pi:winampdeck-deploy/"
     ssh "$pi" 'cd ~/winampdeck-deploy \
         && chmod +x .incoming/winampdeck .incoming/winampdeck-panel-test .incoming/install.sh \
         && mv -f .incoming/* . && rmdir .incoming \

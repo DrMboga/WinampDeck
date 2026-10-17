@@ -113,6 +113,8 @@ ctl.dmixer {
 
 `pcm.!default` is deliberately left alone — both Engines below are pointed at `dmixer` explicitly by name, not at the system default. Already confirmed on this board: two concurrent `speaker-test -D dmixer` processes (440Hz/880Hz) played simultaneously with no `EBUSY`.
 
+> **Since Phase 12** the Deck's `asound.conf` is [audio/asound.conf](../audio/asound.conf) in the repo: the above plus the `deck` device, which also feeds the loopback card the spectrum analyzer records from. `install.sh` puts it in `/etc` on a Pi that has none, and loads the loopback module ([Phase 12](#phase-12--real-spectrum-analyzer)). Both Engines play to `plug:deck`.
+
 ---
 
 ## Phase 2 — go-librespot
@@ -171,6 +173,8 @@ mpris_enabled: false
 - `server.address: localhost` keeps the REST/WebSocket API off the LAN — go-librespot's control API has no documented authentication, so it must never be reachable from outside the Pi itself.
 
 Check go-librespot's own `config.yml.example`/README on whatever version you installed — field names may have shifted since this was researched.
+
+> **Since Phase 12** it's `audio_device: plug:deck`, so the spectrum analyzer hears Spotify too ([Phase 12](#phase-12--real-spectrum-analyzer)). `install.sh` warns if it isn't.
 
 ### 5.3 Run it — ✅ done 2026-09-23
 
@@ -1174,7 +1178,20 @@ journalctl -b -u winampdeck-mpv -u winampdeck-librespot | grep -iE "xrun|underru
 journalctl -b -k | grep -iE "aloop|xrun|i2s"
 ```
 
-**Step 1 has passed: all three checks hold.** The setup in 14.2 and 14.3 is now the Deck's real one. It still lives only on the Pi; moving it into the repo (the mpv unit, go-librespot's `audio_device`, `asound.conf` and the module options, with an install step) is part of Step 2.
+**Step 1 has passed: all three checks hold.** The setup in 14.2 and 14.3 is now the Deck's real one.
+
+### 14.7 The tap's setup in the repo
+
+Since Step 2 the setup is in the repo, and `install.sh` installs it:
+
+| File in the repo | On the Pi | `install.sh` |
+|---|---|---|
+| [audio/asound.conf](../audio/asound.conf) | `/etc/asound.conf` | installs it only if there's none; warns if the one there has no `deck` |
+| [audio/modules-load.d/snd-aloop.conf](../audio/modules-load.d/snd-aloop.conf), [audio/modprobe.d/snd-aloop.conf](../audio/modprobe.d/snd-aloop.conf) | `/etc/modules-load.d/`, `/etc/modprobe.d/` | always installs them, and loads the module |
+| [systemd/winampdeck-mpv.service](../systemd/winampdeck-mpv.service) | `/etc/systemd/system/` | plays to `plug:deck` itself; the experiment's drop-in is removed |
+| go-librespot's `audio_device: plug:deck` | `/home/pi/go-librespot/config.yml` | yours, as before; warns if it isn't `plug:deck` |
+
+On this Pi, the first `install.sh` after Step 2 should change nothing audible: it reinstalls the same module files, keeps `/etc/asound.conf`, and restarts mpv on the same device without the drop-in.
 
 ---
 
