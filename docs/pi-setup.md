@@ -1028,7 +1028,7 @@ drwxr-xr-x 2 root root 4096 Oct 16 17:15 /var/lib/winampdeck
 
 **Goal of Step 1** ([delivery plan](delivery-plan.md#phase-12--real-spectrum-analyzer), research in `.tracker/spectrum-analyzer/research/audio-tap.md`): a copy of everything the Engines play, on a loopback sound card the controller can record from, without disturbing the sound. Each Engine plays to a new device, `deck`, which sends the audio both to the existing `dmixer` on the HAT and to a second mixer, `dmixloop`, on the kernel's loopback card (`snd-aloop`). The loopback takes its timing from the HAT (`timer_source`), so there's only one clock. No controller code is involved.
 
-**Status (2026-10-16): in progress.** The tap is set up and checks 1 and 3 have passed; check 2 (two hours on each Engine) is still to run. **The Pi is left on the experimental setup**: both Engines play to `deck`.
+**Status (2026-10-17): in progress.** The tap is set up; checks 1 and 3 have passed, and check 2 has passed for Radio. Two hours of Spotify are left. **The Pi is left on the experimental setup**: both Engines play to `deck`.
 
 ### 14.1 What the Pi had
 
@@ -1160,7 +1160,9 @@ The loopback module stays loaded until the next reboot.
 - **When nothing plays to `deck`, the loopback stops.** It takes its timing from the HAT's stream through `deck`, so with no Engine playing, a recording gets no more data and `arecord` fails with `Input/output error` once its read times out. The controller's recorder in Step 2 must treat a read error or timeout as silence and reopen the device, not give up.
 - On the Pi, the original `~/switch-soak.sh` is an older version than the one in [7.2](#72-the-switching-soak-script), without the `device-not-running` count; the tap copy has it.
 
-**Still to do: check 2.** Two hours of Radio, then two hours of Spotify, with the controller running and the Deck used normally; note the start and end times. Afterwards:
+**Check 2, Radio half (2026-10-17): passed.** Radio played from 09:19:54 to 11:37 (2h17m) after a cold power-on, with the controller running. mpv opened the audio device once, at the start, and logged nothing but Station titles after it; no underrun, xrun or busy message from either Engine, nothing about the loopback or I²S in the kernel log, `throttled=0x0`, both cards `RUNNING` at the end, and smooth by ear throughout. The Pi has no battery-backed clock, so units started at boot carry the time saved at the last shutdown until network time corrects it (here at 09:19:47); read the journal with `-b` rather than `--since` across a boot.
+
+**Still to do: check 2, Spotify half.** Two hours of Spotify, with the controller running and the Deck used normally; note the start and end times. Afterwards:
 
 ```bash
 journalctl -u winampdeck-mpv -u winampdeck-librespot --since "<start>" --until "<end>" | grep -iE "xrun|underrun|underflow|busy"
@@ -1175,6 +1177,6 @@ It passes with no dropout by ear and nothing from either command. If Step 1 pass
 
 The real controller runs the panel and both Engines (Phase 8), systemd starts all three on boot (Phase 10), and Radio comes back on the Last Station (Phase 11). Next:
 
-- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. Its Step 1, the ALSA loopback tap, is under way: see [Phase 12](#phase-12--real-spectrum-analyzer) above; two-hour runs on each Engine are left.
+- [Phase 12](delivery-plan.md#phase-12--real-spectrum-analyzer): a real spectrum analyzer. Its Step 1, the ALSA loopback tap, is under way: see [Phase 12](#phase-12--real-spectrum-analyzer) above; a two-hour run on Spotify is left.
 - [Phase 9](delivery-plan.md#phase-9--full-integration-on-the-assembled-panel), last: the multi-day soak on the assembled panel. It should include the checks Phase 10 left out ([12.4](#124-failures-recover) and a power cut without a Safe Shutdown).
 - Still open: Wi-Fi reliability with the HAT fitted. The Pi runs on Ethernet with Wi-Fi off until that's looked into. How long a muted stream survives no longer matters, because Radio is loaded afresh on every switch back to it.
