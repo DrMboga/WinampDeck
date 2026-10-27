@@ -4,7 +4,7 @@ This is the 40-pin header allocation for all of WinampDeck's hardware, targeting
 
 Everything here is built from primary sources — Raspberry Pi's own GPIO header documentation, the actual `hifiberry-digi-pro` device-tree overlay source, Microchip's MCP23017 datasheet, and the manufacturer's own manuals for the specific TFT, LCD/I2C-adapter, and MCP23017 (CJMCU-2317) breakout boards actually being used, purchased from AZ-Delivery (kept locally in `docs/`, not committed — see below) — kept in `.tracker/controller-v1/research/` for anyone who wants to check the sourcing. One thing could **not** be verified from any authoritative source and needed a real-hardware check before committing to soldering; it's called out, along with the check's result, in [Verify before you solder](#verify-before-you-solder).
 
-The three AZ-Delivery product manuals this doc draws on aren't tracked in git (they're large vendor PDFs, not something the repo needs to carry) — if you're picking this up fresh, they cover the 1.77" TFT SPI screen, the 16x02 LCD + I2C adapter, and the MCP23017 I2C port expander, all available from AZ-Delivery's own site/product pages.
+The three AZ-Delivery product manuals this doc draws on aren't tracked in git (they're large vendor PDFs, not something the repo needs to carry) — if you're picking this up fresh, they cover the 1.8" SPI TFT display 128 x 160 (which replaced the original 1.77" TFT in 2026-10 — see [ST7735 TFT wiring](#st7735-tft-wiring)), the 16x02 LCD + I2C adapter, and the MCP23017 I2C port expander, all available from AZ-Delivery's own site/product pages.
 
 ## Pins the HAT already claims — do not reuse these
 
@@ -37,19 +37,19 @@ One more pin to steer clear of, for a different reason: this specific clone boar
 |---|---|---|---|
 | 1 | — (3.3V) | Power | MCP23017 VDD; level shifter VA + OE (OE via 10kΩ pull-up resistor — see [LCD backpack wiring](#lcd-backpack-wiring)) |
 | 2 | — (5V) | Power | Level shifter VB (its high-voltage side, feeding the LCD adapter) |
-| 4 | — (5V) | Power | TFT VCC — the board has its own onboard regulator down to 3.3V; AZ-Delivery's own Raspberry Pi wiring diagram for this exact board feeds it 5V here |
+| 4 | — (5V) | Power | TFT VCC — AZ-Delivery's manual rates the module's supply as 3.3V or 5V |
 | 6 / 9 / 14 / 20 / 25 / 30 / 34 / 39 | — (GND) | Ground | Common ground, all peripherals (including the level shifter) |
-| 16 | GPIO23 | TFT RS / DC | ST7735 — command/data select |
-| 18 | GPIO24 | TFT RES | ST7735 — hard reset |
+| 16 | GPIO23 | TFT A0 (DC) | ST7735 — command/data select |
+| 18 | GPIO24 | TFT RESET | ST7735 — hard reset |
 | 19 | GPIO10 (MOSI) | TFT SDA (SPI data) | ST7735 — SPI0 |
 | 23 | GPIO11 (SCLK) | TFT SCK (SPI clock) | ST7735 — SPI0 |
 | 24 | GPIO8 (CE0) | TFT CS (chip select) | ST7735 — SPI0 |
-| 32 | GPIO12 (PWM0) | TFT LEDA (backlight) | ST7735 — PWM, for the config file's brightness setting |
+| 32 | GPIO12 (PWM0) | TFT LED (backlight) | ST7735 — PWM, for the config file's brightness setting |
 | 13 | GPIO27 | MCP23017 interrupt | MCP23017's combined interrupt pin (see below) |
 
 `GPIO9` (MISO, pin 21) comes bundled with enabling SPI0 but the TFT never drives it — leave unconnected. `GPIO7` (CE1, pin 26) and `GPIO25` (pin 22) are free if anything else needs them later.
 
-These TFT pin choices (RS→GPIO23, RES→GPIO24) and the VCC→5V decision come directly from AZ-Delivery's own manual for this exact board, not an arbitrary pick — worth keeping if you ever cross-reference their diagram.
+These TFT pin choices (A0→GPIO23, RESET→GPIO24) and the VCC→5V decision come from AZ-Delivery's manual for the original 1.77" board. They were kept when it was replaced by the 1.8" board, so the code didn't change. The 1.8" board's own manual differs in places; see [ST7735 TFT wiring](#st7735-tft-wiring).
 
 ## The shared I2C1 bus
 
@@ -117,20 +117,31 @@ Header pins, left to right:
 
 ## ST7735 TFT wiring
 
-This specific AZ-Delivery board has an onboard 3.3V regulator, so per their own tested Raspberry Pi wiring diagram, VCC is fed 5V while every logic pin stays 3.3V — the display itself isn't 5V-tolerant, and AZ-Delivery's guide only calls for a level converter on 5V-logic boards like an Arduino Uno. Since the Pi's GPIO is already native 3.3V, none is needed here.
+**Board replaced (2026-10-27).** The original AZ-Delivery 1.77" TFT was destroyed when its VCC and GND wires were swapped. Its replacement is AZ-Delivery's **1.8" SPI TFT display 128 x 160**. It uses the same ST7735 controller at the same resolution, takes the same signals, and goes on the same Pi pins, so the code is unchanged. Three things differ:
 
-| TFT pin | Connects to | Note |
+- **The header order and pin names.** With the screen facing you and the header at the top, the 8 pins run left to right: `LED · SCK · SDA · A0 · RESET · CS · GND · VCC`. GND and VCC sit next to each other at the right-hand end. Wire each pin individually from the table below, never as a block in the old board's order. `A0` is the old board's RS, `RESET` its RES, and `LED` its LEDA.
+- **A second, 4-pin header** at the bottom edge (`SD_CS · SD_MOSI · SD_MISO · SD_SCK`) belongs to the microSD slot on the back. It stays unconnected.
+- **The size.** The board is 34.5 × 58 mm, with a 32 × 38 mm display area. The old board was smaller, so check that the new one fits the panel's cutout.
+
+AZ-Delivery's manual for this board rates the module's supply as 3.3V or 5V, and its logic is 3.3V. The Pi's GPIO is already native 3.3V, so no level converter is needed.
+
+| TFT pin (header, left → right) | Connects to | Note |
 |---|---|---|
-| VCC | 5V (pin 4) | onboard regulator steps this down to 3.3V for the chip |
-| GND | GND | |
+| LED | GPIO12 / PWM0 (pin 32) | backlight — PWM for the config file's brightness setting; a direct 3.3V tie also works if dimming isn't needed, but never 5V — that can damage the screen. See the note below the table |
 | SCK | GPIO11 / SCLK (pin 23) | SPI0 clock |
 | SDA | GPIO10 / MOSI (pin 19) | SPI0 data |
+| A0 | GPIO23 (pin 16) | command/data select |
+| RESET | GPIO24 (pin 18) | hard reset |
 | CS | GPIO8 / CE0 (pin 24) | SPI0 chip select |
-| RES | GPIO24 (pin 18) | hard reset |
-| RS (labelled "REG. SEL." in AZ-Delivery's manual) | GPIO23 (pin 16) | command/data select |
-| LEDA | GPIO12 / PWM0 (pin 32) | backlight — PWM for the config file's brightness setting; a direct 3.3V tie also works if dimming isn't needed, but never 5V — that can damage the screen. See the note below the table |
+| GND | GND | |
+| VCC | 5V (pin 4) | the manual allows 3.3V or 5V; 3.3V (pin 17) also works and is what its Raspberry Pi diagram uses |
+| SD_CS, SD_MOSI, SD_MISO, SD_SCK | — | not connected |
 
-**Backlight brightness (checked 2026-10-01).** GPIO12 drives LEDA directly, with no transistor. A GPIO pin can only supply a few mA (8mA at the Pi's default drive setting), so this limits the backlight current. Full PWM (brightness 255) is visibly dimmer than tying LEDA straight to 3.3V. The dimmer level was preferred and kept. Because the pin itself runs the backlight, it is working at its current limit. If more brightness is ever wanted, switch the backlight with a transistor (e.g. an NPN or a logic-level P-MOSFET) driven from GPIO12, rather than raising the pin's drive strength. That setting applies to GPIO0–27 together, including the HAT's I2S pins.
+The manual's own Raspberry Pi diagram differs from this table in two places. It uses GPIO25 for A0, but GPIO23 is kept here because the code uses it and the HAT doesn't claim it. It also ties LED straight to 3.3V, but GPIO12 is kept here so the brightness setting still works.
+
+**Panel settings.** 1.8" ST7735 modules vary in colour order and in where the visible area starts. If red and blue come out swapped, or there's a thin band of noise along one edge, try `panel_test --madctl 0xA8` (the BGR bit) or `--offset 2,1` / `--offset 1,2`. Then change the defaults in `src/hw/st7735.hpp` to the values that work.
+
+**Backlight brightness (checked 2026-10-01, on the original 1.77" board).** GPIO12 drives the backlight directly, with no transistor. A GPIO pin can only supply a few mA (8mA at the Pi's default drive setting), so this limits the backlight current. Full PWM (brightness 255) is visibly dimmer than tying the backlight straight to 3.3V. The dimmer level was preferred and kept. Because the pin itself runs the backlight, it is working at its current limit. AZ-Delivery lists the 1.8" board's backlight at up to about 50mA, so it will be held back by this limit just as the old one was. If more brightness is ever wanted, switch the backlight with a transistor (e.g. an NPN or a logic-level P-MOSFET) driven from GPIO12, rather than raising the pin's drive strength. That setting applies to GPIO0–27 together, including the HAT's I2S pins.
 
 ## LCD backpack wiring
 

@@ -8,8 +8,8 @@
 
 namespace winampdeck {
 
-// The 1.77" ST7735 TFT, driven directly through pigpio: SPI0/CE0 for data,
-// GPIO23 for RS (command/data), GPIO24 for RES, and the backlight on GPIO12.
+// The 1.8" ST7735 TFT, driven directly through pigpio: SPI0/CE0 for data,
+// GPIO23 for A0 (command/data), GPIO24 for RESET, and the backlight on GPIO12.
 // Wiring: docs/wiring.md. Requires a live PigpioSession.
 //
 // The panel holds the display in landscape, so it's addressed as 160×128.
