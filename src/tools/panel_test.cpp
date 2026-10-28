@@ -31,7 +31,7 @@
 //   --madctl 0xNN      ST7735 rotation and colour order (default: 0xA0)
 //   --spi-hz N         SPI clock in Hz (default: 16000000)
 //   --brightness N     backlight, 0-255 (default: 255)
-//   --offset COL,ROW   where the visible area starts (default: 0,0)
+//   --offset COL,ROW   where the visible area starts (default: 1,2)
 //
 // LCD OPTIONS:
 //   --lcd-scroll-ms N  how long each scroll step lasts (default: 300)

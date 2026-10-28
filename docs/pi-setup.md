@@ -609,7 +609,7 @@ Both modes take the same TFT options:
 | Option | Default | What it's for |
 |---|---|---|
 | `--madctl 0xNN` | `0xA0` | Rotation, mirroring and colour order (the ST7735's MADCTL register) |
-| `--offset COL,ROW` | `0,0` | Where the visible area starts in the controller's memory |
+| `--offset COL,ROW` | `1,2` | Where the visible area starts in the controller's memory |
 | `--spi-hz N` | `16000000` | SPI clock |
 | `--brightness N` | `255` | Backlight, 0–255 |
 | `--data DIR` | `data` | Where `stations.csv` and `logos/` are |
@@ -700,6 +700,8 @@ As in [8.7](#87-check-the-buttons-dont-disturb-audio): start the Engines, play S
 **After the results above (2026-10-01):**
 - **Rotation:** rebuilt with the new 180° default (`0xA0`), and the screen reads the right way up as the module will sit in the panel. No `--madctl`, `--offset` or `--spi-hz` flags are needed any more.
 - **Backlight:** at the default brightness (255) the PWM is fully on, so that's the most GPIO12 can give. For comparison, LEDA was moved straight to 3.3V. That was visibly brighter, because a GPIO pin can only supply a few mA (8mA at the default drive setting) and that limits the backlight current. Even so, the GPIO12 PWM brightness looked better, so LEDA stays on GPIO12, with no transistor. See [wiring.md](wiring.md#st7735-tft-wiring).
+
+**Replacement 1.8" TFT (2026-10-28).** The 1.77" module was replaced by AZ-Delivery's 1.8" one ([wiring.md](wiring.md#st7735-tft-wiring)). With the old defaults it showed a noisy column on the right edge and two noisy rows along the bottom, with the picture shifted by the same amount. `--offset 1,2` fixed both: the white frame reaches all four edges, the colours are right at `0xA0`, and Now Playing (both Sources) and the Station List look clean. `1,2` is now the default.
 
 ## Phase 7 — LCD
 

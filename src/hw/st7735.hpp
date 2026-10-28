@@ -25,8 +25,9 @@ public:
         // 180°, which is how it sat on the breadboard for the 9.3 checks.
         std::uint8_t madctl = 0xA0;
         // Some panels' visible area doesn't start at the controller's (0, 0).
-        int columnOffset = 0;
-        int rowOffset = 0;
+        // The 1.8" module's starts at (1, 2), measured on the Deck at 0xA0.
+        int columnOffset = 1;
+        int rowOffset = 2;
         // Backlight PWM duty, 0 (off) to 255 (full).
         unsigned brightness = 255;
     };
