@@ -15,7 +15,7 @@ Both of these run the whole time the Deck is powered on — they're never starte
 flowchart LR
     subgraph Panel
         Buttons["8 buttons + 2 LEDs\n(via MCP23017, I2C)"]
-        TFT["1.77&quot; TFT\n(ST7735, SPI)"]
+        TFT["1.8&quot; TFT\n(ST7735, SPI)"]
         LCD["1602 LCD, row 1 only\n(via FC-113, I2C)"]
     end
 

@@ -5,13 +5,13 @@ A hardware media player built into a 3D-printed Winamp-skin front panel. It play
 ![Front panel](docs/img/WinampPanelFront.jpg)
 ![Back panel](docs/img/WinampPanelBack.jpg)
 
-The panel has two display cutouts (a 1.77" TFT and a single-row-visible LCD) and 8 functional buttons plus 2 LEDs behind the classic Winamp controls (Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat). Everything else on the skin — the volume/balance sliders, EQ/FL labels, the visualizer swirl — is decorative.
+The panel has two display cutouts (a 1.8" TFT and a single-row-visible LCD) and 8 functional buttons plus 2 LEDs behind the classic Winamp controls (Previous, Stop, Pause, Play, Next, Eject, Shuffle, Repeat). Everything else on the skin — the volume/balance sliders, EQ/FL labels, the visualizer swirl — is decorative.
 
 ## Hardware
 
 - Raspberry Pi 3 Model B (1 GB RAM)
 - HiFiBerry Digi+ Pro-compatible HAT (digital S/PDIF output)
-- 1.77" SPI TFT, 128×160, ST7735(R)
+- 1.8" SPI TFT, 128×160, ST7735 (AZ-Delivery; it replaced the original 1.77" one in 2026-10, see [wiring](docs/wiring.md#st7735-tft-wiring))
 - HD44780 1602 LCD (first row visible only) via an FC-113/PCF8574 I²C backpack
 - MCP23017 I²C GPIO expander (buttons and LEDs)
 - 5V/2.5A micro-USB power supply
